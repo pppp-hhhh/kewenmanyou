@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义样式 */
+:root {
+  --color-primary: #4f46e5;
+  --color-secondary: #10b981;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* 卡片悬浮效果 */
+.card-hover {
+  @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+}
+
+/* 图片占位动画 */
+@keyframes pulse-bg {
+  0%, 100% {
+    background-color: rgb(229, 231, 235);
+  }
+  50% {
+    background-color: rgb(209, 213, 219);
+  }
+}
+
+.animate-pulse-bg {
+  animation: pulse-bg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
