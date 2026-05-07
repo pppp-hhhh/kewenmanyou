@@ -28,7 +28,7 @@
 - Python 3.10 + FastAPI + Uvicorn
 - DeepSeek API（课文分析）
 - ComfyUI + SD1.5 古风模型 + LCM LoRA（图像生成）
-- SQLite 数据库
+- SupaBase 数据库
 
 ## 项目结构
 
