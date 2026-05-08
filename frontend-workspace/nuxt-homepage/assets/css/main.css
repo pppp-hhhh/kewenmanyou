@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.comic-border {
+  border: 3px solid #000;
+  box-shadow: 5px 5px 0px #000;
+}
+
+.comic-border-lg {
+  border: 4px solid #000;
+  box-shadow: 6px 6px 0px #000;
+}
+
+.comic-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px #000;
+}
+
+.gradient-text {
+  background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #000;
+  border-radius: 4px;
+}
