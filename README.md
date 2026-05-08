@@ -96,6 +96,9 @@ npm run dev
 
 访问：`http://localhost:3000`
 
+### 运行长漫连排版
+python multi_stitcher.py  # 访问 http://127.0.0.1:8002/docs
+
 ## 页面说明
 
 | 页面 | 路由 | 说明 |
