@@ -118,19 +118,7 @@ const saveWork = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- 顶部导航 -->
-    <header class="bg-white shadow-sm border-b">
-      <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-        <h1 class="text-2xl font-bold text-indigo-600">
-          课文漫游 - 工作台
-        </h1>
-        <div class="text-sm text-gray-500">
-          AI 漫画生成器
-        </div>
-      </div>
-    </header>
-
+  <div class="bg-gray-50">
     <!-- 主内容区 -->
     <main class="max-w-7xl mx-auto px-4 py-6">
       <div class="flex gap-6 h-[calc(100vh-180px)]">
