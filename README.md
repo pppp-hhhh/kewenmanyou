@@ -26,8 +26,9 @@
 ### 后端
 
 - Python 3.10 + FastAPI + Uvicorn
-- DeepSeek API（课文分析）
-- ComfyUI + SD1.5 古风模型 + LCM LoRA（图像生成）
+- DeepSeek API（课文分析与分镜拆解）
+- ComfyUI + Z-image（图像生成）
+- pillow (用于长漫分镜物理拼接)
 - SupaBase 数据库
 
 ## 项目结构
@@ -77,14 +78,35 @@ WORKS_IMAGE_DIR=./static/works
 DATABASE_URL=sqlite:///./app.db
 ```
 
-### 3. 启动后端
+### 3 .启动后端服务
 
-```bash
+本系统后端基于 FastAPI 构建，提供两种运行模式以适配不同的教学场景。
+
+#### 准备工作
+在启动前，请确保已安装核心依赖并配置好 ComfyUI：
 cd server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
+pip install -r requirements.txt
+pip install Pillow
 
-API 文档：`http://localhost:8000/docs`
+#### 运行模式选择
+
+你可以根据需要启动以下任一服务：
+
+- **标准单图版**：python main.py (端口: 8001)
+  核心功能：快速生成单张课文插画。
+  
+- **增强连排版**：python multi_stitcher.py (端口: 8002)
+  核心功能：自动分镜、多图生成并物理拼接为垂直长漫画。
+
+#### 3. API 调试说明
+服务启动后，可以通过 Swagger UI 实时调试接口：
+- 单图版文档: http://127.0.0.1:8001/docs
+- 连排版文档: http://127.0.0.1:8002/docs
+
+> ⚠️ 运行须知：
+> - 确保 ComfyUI 已启动（API 默认端口通常为 8188）。
+> - 请务必在代码配置区填入有效的 DEEPSEEK_API_KEY 和 SUPABASE_KEY。
+> - 连排模式下，生成的长漫会自动保存至桌面的 “课文漫游长漫” 文件夹。
 
 ### 4. 安装前端依赖并启动
 
@@ -96,8 +118,6 @@ npm run dev
 
 访问：`http://localhost:3000`
 
-### 运行长漫连排版
-python multi_stitcher.py  # 访问 http://127.0.0.1:8002/docs
 
 ## 页面说明
 
