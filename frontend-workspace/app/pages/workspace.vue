@@ -118,15 +118,15 @@ const saveWork = async () => {
 </script>
 
 <template>
-  <div class="bg-gray-50">
+  <div class="bg-gray-50 dark:bg-gray-900 transition-colors">
     <!-- 主内容区 -->
     <main class="max-w-7xl mx-auto px-4 py-6">
       <div class="flex gap-6 h-[calc(100vh-180px)]">
         <!-- 左侧 -->
         <div class="w-1/2 space-y-4 overflow-y-auto">
           <!-- 课文来源 -->
-          <section class="bg-white rounded-lg shadow p-4">
-            <h2 class="text-base font-semibold mb-2">
+          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-2 transition-colors">
               课文来源
             </h2>
 
@@ -154,7 +154,9 @@ const saveWork = async () => {
             <div v-if="textSource === 'select'" class="mb-4">
               <select
                 v-model="selectedTextId"
-                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg
+                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                       focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
               >
                 <option :value="null" disabled>
                   请选择课文
@@ -170,14 +172,17 @@ const saveWork = async () => {
                 v-model="customText"
                 rows="6"
                 placeholder="请输入课文内容..."
-                class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg
+                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                       placeholder:text-gray-400 dark:placeholder:text-gray-500
+                       focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
               />
             </div>
           </section>
 
           <!-- 画风选择 -->
-          <section class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-base font-semibold mb-2">
+          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-2 transition-colors">
               画风选择
             </h2>
             <div class="grid grid-cols-3 gap-3">
@@ -187,8 +192,8 @@ const saveWork = async () => {
                 :class="[
                   'px-4 py-3 rounded-lg border-2 transition-all',
                   selectedStyle === style
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-200 hover:border-gray-300',
+                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300',
                 ]"
                 @click="selectedStyle = style"
               >
@@ -198,8 +203,8 @@ const saveWork = async () => {
           </section>
 
           <!-- AI 分析 -->
-          <section class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-base font-semibold mb-2">
+          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-2 transition-colors">
               AI 分析
             </h2>
             <button
@@ -215,15 +220,15 @@ const saveWork = async () => {
           </section>
 
           <!-- 场景编辑 -->
-          <section class="bg-white rounded-lg shadow p-4">
+          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
             <div class="flex items-center justify-between mb-2">
-              <h2 class="text-base font-semibold">
+              <h2 class="text-base font-semibold text-gray-900 dark:text-white transition-colors">
                 场景编辑
               </h2>
-              <span class="text-sm text-gray-500">{{ store.scenes.length }} 个场景</span>
+              <span class="text-sm text-gray-500 dark:text-gray-400">{{ store.scenes.length }} 个场景</span>
             </div>
 
-            <div v-if="store.scenes.length === 0" class="text-center py-4 text-gray-400 text-sm">
+            <div v-if="store.scenes.length === 0" class="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">
               暂无场景，请先分析课文
             </div>
 
@@ -231,13 +236,13 @@ const saveWork = async () => {
               <div
                 v-for="(scene, index) in store.scenes"
                 :key="index"
-                class="p-4 border rounded-lg"
+                class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
               >
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-medium text-gray-500">场景 {{ index + 1 }}</span>
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400">场景 {{ index + 1 }}</span>
                   <div class="flex gap-1">
                     <button
-                      class="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                      class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 text-gray-600 dark:text-gray-300"
                       :disabled="index === 0"
                       title="上移"
                       @click="store.moveSceneUp(index)"
@@ -245,7 +250,7 @@ const saveWork = async () => {
                       ↑
                     </button>
                     <button
-                      class="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+                      class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 text-gray-600 dark:text-gray-300"
                       :disabled="index === store.scenes.length - 1"
                       title="下移"
                       @click="store.moveSceneDown(index)"
@@ -253,7 +258,7 @@ const saveWork = async () => {
                       ↓
                     </button>
                     <button
-                      class="p-1 hover:bg-red-50 text-red-500 rounded"
+                      class="p-1 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 rounded"
                       title="删除"
                       @click="store.removeScene(index)"
                     >
@@ -264,7 +269,9 @@ const saveWork = async () => {
                 <textarea
                   v-model="scene.description_cn"
                   rows="2"
-                  class="w-full px-2 py-1 text-sm border rounded mb-2"
+                  class="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded mb-2
+                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                         placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-colors"
                   placeholder="场景描述（中文）"
                   @blur="store.updateScene(index, { description_cn: scene.description_cn })"
                 />
@@ -284,8 +291,8 @@ const saveWork = async () => {
           </section>
 
           <!-- 进度提示 -->
-          <section v-if="store.progressMsg" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p class="text-blue-700 text-center">
+          <section v-if="store.progressMsg" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 transition-colors">
+            <p class="text-blue-700 dark:text-blue-300 text-center">
               {{ store.progressMsg }}
             </p>
           </section>
@@ -293,12 +300,12 @@ const saveWork = async () => {
 
         <!-- 右侧预览 -->
         <div class="w-1/2 flex flex-col">
-          <section class="bg-white rounded-lg shadow flex-1 flex flex-col min-h-0">
-            <div class="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
-              <h2 class="text-base font-semibold">
+          <section class="bg-white dark:bg-gray-800 rounded-lg shadow flex-1 flex flex-col min-h-0 transition-colors">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <h2 class="text-base font-semibold text-gray-900 dark:text-white transition-colors">
                 图片预览
               </h2>
-              <span v-if="store.taskStatus" class="text-sm text-gray-500">
+              <span v-if="store.taskStatus" class="text-sm text-gray-500 dark:text-gray-400">
                 {{ store.taskStatus.completed }}/{{ store.taskStatus.total }}
               </span>
             </div>
@@ -308,11 +315,11 @@ const saveWork = async () => {
               <div
                 v-for="i in 6"
                 :key="i"
-                class="border-b last:border-b-0"
+                class="border-b border-gray-200 dark:border-gray-700 last:border-b-0"
               >
-                <div class="relative w-full bg-gray-100" style="padding-bottom: 100%;">
+                <div class="relative w-full bg-gray-100 dark:bg-gray-700 transition-colors" style="padding-bottom: 100%;">
                   <div class="absolute inset-0 flex items-center justify-center">
-                    <span class="text-gray-400 text-sm">场景 {{ i }}</span>
+                    <span class="text-gray-400 dark:text-gray-500 text-sm">场景 {{ i }}</span>
                   </div>
                 </div>
               </div>
@@ -357,9 +364,9 @@ const saveWork = async () => {
                   >
                   <div
                     v-else
-                    class="absolute inset-0 flex items-center justify-center bg-gray-100"
+                    class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-colors"
                   >
-                    <span class="text-gray-400">生成中...</span>
+                    <span class="text-gray-400 dark:text-gray-500">生成中...</span>
                   </div>
                   <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
                     <p class="text-white text-xs">{{ scene.description_cn }}</p>
@@ -373,7 +380,7 @@ const saveWork = async () => {
           </section>
 
           <!-- 保存 -->
-          <section v-if="store.isGeneratingComplete" class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <section v-if="store.isGeneratingComplete" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 transition-colors">
             <button
               class="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-medium
                      hover:bg-green-700 transition-colors"
