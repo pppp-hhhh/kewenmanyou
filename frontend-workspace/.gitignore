@@ -13,6 +13,18 @@ node_modules
 logs
 *.log
 
+# Browser sessions
+.browser-sessions/
+
+# Claude / Codex
+.claude/
+.codex/
+
+# Local configs
+.npmrc
+.nuxtrc
+CLAUDE.md
+
 # Misc
 .DS_Store
 .fleet
