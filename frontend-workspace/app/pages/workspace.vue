@@ -5,6 +5,9 @@ import { useWorkspaceStore } from '~/stores/workspace'
 const store = useWorkspaceStore()
 const { startPoll } = useTaskPoll()
 
+// 暗色模式
+const { isDark, toggle } = useDarkMode()
+
 // 课文列表（从 API 获取）
 const { data: texts } = await useFetch('/api/texts', {
   default: () => [],
@@ -119,15 +122,15 @@ const saveWork = async () => {
 </script>
 
 <template>
-  <div class="py-6">
+  <div class="py-6" :class="isDark ? 'bg-gray-900' : ''" :style="!isDark ? 'background: linear-gradient(135deg, #f8f7ff 0%, #f0f4ff 50%, #fafbff 100%);' : ''">
     <!-- 主内容区 -->
     <main class="max-w-7xl mx-auto px-4">
       <div class="flex gap-6 h-[calc(100vh-180px)]">
         <!-- 左侧 -->
         <div class="w-1/2 space-y-4 overflow-y-auto">
           <!-- 课文来源 -->
-          <section class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50">
-            <h2 class="text-base font-semibold mb-3 text-indigo-900">
+          <section class="bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50 dark:border-gray-700 transition-colors">
+            <h2 class="text-base font-semibold mb-3 text-indigo-900 dark:text-indigo-300 transition-colors">
               课文来源
             </h2>
 
@@ -166,14 +169,14 @@ const saveWork = async () => {
               <!-- Custom Select Trigger -->
               <button
                 type="button"
-                class="w-full px-4 py-2.5 bg-gradient-to-r from-gray-50 to-white border border-indigo-100 rounded-xl text-left text-gray-700
+                class="w-full px-4 py-2.5 bg-gradient-to-r from-gray-50 to-white border border-indigo-100 rounded-xl text-left text-gray-700 dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600
                        flex items-center justify-between gap-2
                        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400
                        hover:border-indigo-300 hover:shadow-md transition-all duration-200"
                 @click="selectOpen = !selectOpen"
                 @blur="selectOpen = false"
               >
-                <span :class="selectedTextId ? 'text-gray-900' : 'text-gray-400'">
+                <span :class="selectedTextId ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400'">
                   {{ selectedTextId ? (texts?.find((t: any) => t.id === selectedTextId)?.title + ' - ' + texts?.find((t: any) => t.id === selectedTextId)?.author) : '请选择课文' }}
                 </span>
                 <!-- Custom Chevron -->
@@ -193,15 +196,15 @@ const saveWork = async () => {
               >
                 <div
                   v-if="selectOpen"
-                  class="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-sm border border-indigo-100 rounded-xl shadow-xl shadow-indigo-200/30 overflow-hidden"
+                  class="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-sm dark:bg-gray-800 border border-indigo-100 dark:border-gray-600 rounded-xl shadow-xl shadow-indigo-200/30 overflow-hidden"
                 >
                   <div class="max-h-60 overflow-y-auto">
                     <button
                       v-for="text in texts"
                       :key="text.id"
                       type="button"
-                      class="w-full px-4 py-2.5 text-left text-gray-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-700 transition-all duration-150"
-                      :class="{ 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700': selectedTextId === text.id }"
+                      class="w-full px-4 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-700 dark:hover:bg-gray-700 transition-all duration-150"
+                      :class="{ 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 dark:from-indigo-900/30 dark:to-purple-900/30 dark:text-indigo-300': selectedTextId === text.id }"
                       @mousedown.prevent="selectedTextId = text.id; selectOpen = false"
                     >
                       <span class="font-medium">{{ text.title }}</span>
@@ -217,14 +220,14 @@ const saveWork = async () => {
                 v-model="customText"
                 rows="6"
                 placeholder="请输入课文内容..."
-                class="w-full px-4 py-3 border border-indigo-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 bg-gradient-to-r from-gray-50 to-white transition-all duration-200"
+                class="w-full px-4 py-3 border border-indigo-100 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 bg-gradient-to-r from-gray-50 to-white dark:bg-gray-700 dark:text-gray-100 transition-all duration-200"
               />
             </div>
           </section>
 
           <!-- 画风选择 -->
-          <section class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50">
-            <h2 class="text-base font-semibold mb-3 text-indigo-900">
+          <section class="bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50 dark:border-gray-700 transition-colors">
+            <h2 class="text-base font-semibold mb-3 text-indigo-900 dark:text-indigo-300 transition-colors">
               画风选择
             </h2>
             <div class="grid grid-cols-3 gap-3">
@@ -234,8 +237,8 @@ const saveWork = async () => {
                 :class="[
                   'px-4 py-3 rounded-xl border-2 transition-all duration-200',
                   selectedStyle === style
-                    ? 'border-indigo-500 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-200'
-                    : 'border-indigo-100 hover:border-indigo-300 hover:shadow-md bg-white',
+                    ? 'border-indigo-500 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50'
+                    : 'border-indigo-100 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md bg-white dark:bg-gray-700 dark:text-gray-200',
                 ]"
                 @click="selectedStyle = style"
               >
@@ -245,18 +248,17 @@ const saveWork = async () => {
           </section>
 
           <!-- AI 分析 -->
-          <section class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50">
-            <h2 class="text-base font-semibold mb-3 text-indigo-900">
+          <section class="bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50 dark:border-gray-700 transition-colors">
+            <h2 class="text-base font-semibold mb-3 text-indigo-900 dark:text-indigo-300 transition-colors">
               AI 分析
             </h2>
             <button
               :disabled="store.isAnalyzing || (!selectedTextId && !customText.trim())"
-              class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50
+              class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/50
                      disabled:opacity-50 disabled:cursor-not-allowed
                      transition-all duration-200 flex items-center justify-center gap-2
                      hover:shadow-xl hover:shadow-indigo-300/50 hover:-translate-y-0.5
                      active:translate-y-0"
-              :class="store.isAnalyzing || (!selectedTextId && !customText.trim()) ? '' : 'bg-gradient-to-r from-indigo-500 to-purple-500'"
               style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);"
               @click="analyzeText"
             >
@@ -270,15 +272,15 @@ const saveWork = async () => {
           </section>
 
           <!-- 场景编辑 -->
-          <section class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50">
+          <section class="bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50 dark:border-gray-700 transition-colors">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-base font-semibold text-indigo-900">
+              <h2 class="text-base font-semibold text-indigo-900 dark:text-indigo-300 transition-colors">
                 场景编辑
               </h2>
-              <span class="text-sm text-indigo-600 font-medium px-2 py-0.5 bg-indigo-50 rounded-full">{{ store.scenes.length }} 个场景</span>
+              <span class="text-sm text-indigo-600 dark:text-indigo-400 font-medium px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">{{ store.scenes.length }} 个场景</span>
             </div>
 
-            <div v-if="store.scenes.length === 0" class="text-center py-8 text-gray-400 text-sm">
+            <div v-if="store.scenes.length === 0" class="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
               <p class="mb-1">暂无场景</p>
               <p class="text-xs">请先选择课文并点击 AI 分析</p>
             </div>
@@ -287,13 +289,13 @@ const saveWork = async () => {
               <div
                 v-for="(scene, index) in store.scenes"
                 :key="index"
-                class="p-4 border border-indigo-100 rounded-xl bg-gradient-to-r from-white to-indigo-50/30"
+                class="p-4 border border-indigo-100 dark:border-gray-600 rounded-xl bg-gradient-to-r from-white to-indigo-50/30 dark:from-gray-700 dark:to-indigo-900/20"
               >
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-semibold text-indigo-700">场景 {{ index + 1 }}</span>
+                  <span class="text-sm font-semibold text-indigo-700 dark:text-indigo-300">场景 {{ index + 1 }}</span>
                   <div class="flex gap-1">
                     <button
-                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 rounded-lg disabled:opacity-30 transition-colors"
+                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
                       :disabled="index === 0"
                       title="上移"
                       @click="store.moveSceneUp(index)"
@@ -301,7 +303,7 @@ const saveWork = async () => {
                       ↑
                     </button>
                     <button
-                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 rounded-lg disabled:opacity-30 transition-colors"
+                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
                       :disabled="index === store.scenes.length - 1"
                       title="下移"
                       @click="store.moveSceneDown(index)"
@@ -309,7 +311,7 @@ const saveWork = async () => {
                       ↓
                     </button>
                     <button
-                      class="w-7 h-7 flex items-center justify-center hover:bg-red-50 text-red-400 hover:text-red-500 rounded-lg transition-colors"
+                      class="w-7 h-7 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/30 text-red-400 hover:text-red-500 rounded-lg transition-colors"
                       title="删除"
                       @click="store.removeScene(index)"
                     >
@@ -320,7 +322,7 @@ const saveWork = async () => {
                 <textarea
                   v-model="scene.description_cn"
                   rows="2"
-                  class="w-full px-3 py-2 text-sm border border-indigo-100 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 transition-all"
+                  class="w-full px-3 py-2 text-sm border border-indigo-100 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 transition-all"
                   placeholder="场景描述（中文）"
                   @blur="store.updateScene(index, { description_cn: scene.description_cn })"
                 />
@@ -343,8 +345,8 @@ const saveWork = async () => {
           </section>
 
           <!-- 进度提示 -->
-          <section v-if="store.progressMsg" class="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4 mt-4">
-            <p class="text-indigo-700 text-center font-medium">
+          <section v-if="store.progressMsg" class="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 mt-4">
+            <p class="text-indigo-700 dark:text-indigo-300 text-center font-medium">
               {{ store.progressMsg }}
             </p>
           </section>
@@ -352,23 +354,23 @@ const saveWork = async () => {
 
         <!-- 右侧预览 -->
         <div class="w-1/2 flex flex-col">
-          <section class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-indigo-100/30 flex-1 flex flex-col min-h-0 border border-indigo-50">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-indigo-50 flex-shrink-0">
-              <h2 class="text-base font-semibold text-indigo-900">
+          <section class="bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-100/30 flex-1 flex flex-col min-h-0 border border-indigo-50 dark:border-gray-700 transition-colors">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-indigo-50 dark:border-gray-700 flex-shrink-0">
+              <h2 class="text-base font-semibold text-indigo-900 dark:text-indigo-300 transition-colors">
                 图片预览
               </h2>
-              <span v-if="store.taskStatus" class="text-sm text-indigo-600 font-medium px-2 py-0.5 bg-indigo-50 rounded-full">
+              <span v-if="store.taskStatus" class="text-sm text-indigo-600 dark:text-indigo-400 font-medium px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">
                 {{ store.taskStatus.completed }}/{{ store.taskStatus.total }}
               </span>
             </div>
 
             <!-- 空状态 -->
             <div v-if="store.scenes.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-8">
-              <div class="w-20 h-20 mb-4 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+              <div class="w-20 h-20 mb-4 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 flex items-center justify-center">
                 <span class="text-3xl">🎨</span>
               </div>
-              <p class="text-gray-500 font-medium mb-1">暂无预览</p>
-              <p class="text-gray-400 text-sm">选择课文并分析后将在这里显示</p>
+              <p class="text-gray-500 dark:text-gray-400 font-medium mb-1">暂无预览</p>
+              <p class="text-gray-400 dark:text-gray-500 text-sm">选择课文并分析后将在这里显示</p>
             </div>
 
             <!-- 单张 -->
@@ -383,7 +385,7 @@ const saveWork = async () => {
                 >
                 <div
                   v-else
-                  class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50"
+                  class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-900/20"
                 >
                   <div class="w-8 h-8 border-2 border-indigo-300 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
                   <span class="text-indigo-400 text-sm">生成中...</span>
@@ -399,7 +401,7 @@ const saveWork = async () => {
               <div
                 v-for="(scene, index) in store.scenes"
                 :key="index"
-                class="border-b last:border-b-0"
+                class="border-b border-indigo-50 dark:border-gray-700 last:border-b-0"
               >
                 <div class="relative w-full" style="padding-bottom: 100%;">
                   <img
@@ -411,7 +413,7 @@ const saveWork = async () => {
                   >
                   <div
                     v-else
-                    class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50"
+                    class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-900/20"
                   >
                     <div class="w-8 h-8 border-2 border-indigo-300 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
                     <span class="text-indigo-400 text-sm">生成中...</span>
@@ -430,7 +432,7 @@ const saveWork = async () => {
           <!-- 保存 -->
           <section v-if="store.isGeneratingComplete" class="mt-4">
             <button
-              class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-green-200/50
+              class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-green-200/50 dark:shadow-green-900/50
                      hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
               style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);"
               @click="saveWork"
