@@ -12,6 +12,15 @@ body {
   @apply bg-gray-50 text-gray-900;
 }
 
+/* 隐藏滚动条 */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* 卡片悬浮效果 */
 .card-hover {
   @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;

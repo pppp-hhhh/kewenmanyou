@@ -5,6 +5,9 @@ import { useWorkspaceStore } from '~/stores/workspace'
 const store = useWorkspaceStore()
 const { startPoll } = useTaskPoll()
 
+// 暗色模式
+const { isDark, toggle } = useDarkMode()
+
 // 课文列表（从 API 获取）
 const { data: texts } = await useFetch('/api/texts', {
   default: () => [],
@@ -13,6 +16,7 @@ const { data: texts } = await useFetch('/api/texts', {
 // 课文来源：内置课文 ID 或 'custom'
 const textSource = ref<'select' | 'custom'>('select')
 const selectedTextId = ref<number | null>(null)
+const selectOpen = ref(false)
 
 // 画风选择
 const selectedStyle = ref<StyleType>('写实古风')
@@ -118,53 +122,97 @@ const saveWork = async () => {
 </script>
 
 <template>
-  <div class="bg-gray-50 dark:bg-gray-900 transition-colors">
+  <div class="py-6 bg-gray-100 dark:bg-neutral-900">
     <!-- 主内容区 -->
-    <main class="max-w-7xl mx-auto px-4 py-6">
+    <main class="max-w-7xl mx-auto px-4">
       <div class="flex gap-6 h-[calc(100vh-180px)]">
         <!-- 左侧 -->
-        <div class="w-1/2 space-y-4 overflow-y-auto">
+        <div class="w-1/2 space-y-4 overflow-y-auto scrollbar-none">
           <!-- 课文来源 -->
-          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-2 transition-colors">
+          <section class="bg-white dark:bg-neutral-800 rounded-2xl p-5 border border-indigo-50 dark:border-neutral-700 transition-colors">
+            <h2 class="text-base font-semibold mb-3 text-indigo-900 dark:text-neutral-200 transition-colors">
               课文来源
             </h2>
 
-            <div class="flex gap-4 mb-4">
-              <label class="flex items-center gap-2 cursor-pointer">
+            <div class="flex bg-neutral-200 dark:bg-neutral-700 p-1 rounded-xl mb-4">
+              <label class="flex-1 cursor-pointer">
                 <input
                   v-model="textSource"
                   type="radio"
                   value="select"
-                  class="text-indigo-600"
+                  class="sr-only"
                 >
-                <span>选择内置课文</span>
+                <div
+                  class="py-2 px-4 rounded-lg text-center text-sm font-medium transition-all duration-200"
+                  :class="textSource === 'select' ? 'bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-500 dark:text-neutral-300 hover:text-indigo-600 dark:hover:text-indigo-400'"
+                >
+                  选择内置课文
+                </div>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
+              <label class="flex-1 cursor-pointer">
                 <input
                   v-model="textSource"
                   type="radio"
                   value="custom"
-                  class="text-indigo-600"
+                  class="sr-only"
                 >
-                <span>自定义文本</span>
+                <div
+                  class="py-2 px-4 rounded-lg text-center text-sm font-medium transition-all duration-200"
+                  :class="textSource === 'custom' ? 'bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm' : 'text-gray-500 dark:text-neutral-300 hover:text-indigo-600 dark:hover:text-indigo-400'"
+                >
+                  自定义文本
+                </div>
               </label>
             </div>
 
-            <div v-if="textSource === 'select'" class="mb-4">
-              <select
-                v-model="selectedTextId"
-                class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg
-                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                       focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+            <div v-if="textSource === 'select'" class="mb-4 relative">
+              <!-- Custom Select Trigger -->
+              <button
+                type="button"
+                class="w-full px-4 py-2.5 bg-white dark:bg-neutral-700 border border-indigo-100 dark:border-neutral-600 rounded-xl text-left text-gray-700 dark:text-neutral-200
+                       flex items-center justify-between gap-2
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400
+                       hover:border-indigo-300 dark:hover:border-neutral-500 hover:shadow-md transition-all duration-200"
+                @click="selectOpen = !selectOpen"
+                @blur="selectOpen = false"
               >
-                <option :value="null" disabled>
-                  请选择课文
-                </option>
-                <option v-for="text in texts" :key="text.id" :value="text.id">
-                  {{ text.title }} - {{ text.author }}
-                </option>
-              </select>
+                <span :class="selectedTextId ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-500'">
+                  {{ selectedTextId ? (texts?.find((t: any) => t.id === selectedTextId)?.title + ' - ' + texts?.find((t: any) => t.id === selectedTextId)?.author) : '请选择课文' }}
+                </span>
+                <!-- Custom Chevron -->
+                <svg class="w-4 h-4 text-indigo-400 flex-shrink-0 transition-transform duration-200" :class="{ 'rotate-180': selectOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <!-- Custom Dropdown -->
+              <Transition
+                enter-active-class="transition ease-out duration-100"
+                enter-from-class="transform opacity-0 scale-95"
+                enter-to-class="transform opacity-100 scale-100"
+                leave-active-class="transition ease-in duration-75"
+                leave-from-class="transform opacity-100 scale-100"
+                leave-to-class="transform opacity-0 scale-95"
+              >
+                <div
+                  v-if="selectOpen"
+                  class="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-sm dark:bg-gray-800 border border-indigo-100 dark:border-gray-600 rounded-xl shadow-xl shadow-indigo-200/30 overflow-hidden"
+                >
+                  <div class="max-h-60 overflow-y-auto">
+                    <button
+                      v-for="text in texts"
+                      :key="text.id"
+                      type="button"
+                      class="w-full px-4 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-700 dark:hover:bg-gray-700 transition-all duration-150"
+                      :class="{ 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 dark:from-indigo-900/30 dark:to-purple-900/30 dark:text-indigo-300': selectedTextId === text.id }"
+                      @mousedown.prevent="selectedTextId = text.id; selectOpen = false"
+                    >
+                      <span class="font-medium">{{ text.title }}</span>
+                      <span class="text-gray-400 text-sm ml-2">- {{ text.author }}</span>
+                    </button>
+                  </div>
+                </div>
+              </Transition>
             </div>
 
             <div v-else>
@@ -172,17 +220,14 @@ const saveWork = async () => {
                 v-model="customText"
                 rows="6"
                 placeholder="请输入课文内容..."
-                class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg
-                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                       placeholder:text-gray-400 dark:placeholder:text-gray-500
-                       focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                class="w-full px-4 py-3 border border-indigo-100 dark:border-neutral-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 bg-white dark:bg-neutral-700 dark:text-neutral-100 dark:placeholder-neutral-500 transition-all duration-200"
               />
             </div>
           </section>
 
           <!-- 画风选择 -->
-          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-2 transition-colors">
+          <section class="bg-white dark:bg-neutral-800 rounded-2xl p-5 border border-indigo-50 dark:border-neutral-700 transition-colors">
+            <h2 class="text-base font-semibold mb-3 text-indigo-900 dark:text-neutral-200 transition-colors">
               画风选择
             </h2>
             <div class="grid grid-cols-3 gap-3">
@@ -190,10 +235,10 @@ const saveWork = async () => {
                 v-for="style in STYLE_OPTIONS"
                 :key="style"
                 :class="[
-                  'px-4 py-3 rounded-lg border-2 transition-all',
+                  'px-4 py-3 rounded-xl border-2 transition-all duration-200',
                   selectedStyle === style
-                    ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300',
+                    ? 'border-indigo-500 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50'
+                    : 'border-indigo-100 dark:border-neutral-600 hover:border-indigo-300 dark:hover:border-neutral-500 hover:shadow-md bg-white dark:bg-neutral-700 dark:text-neutral-200',
                 ]"
                 @click="selectedStyle = style"
               >
@@ -203,46 +248,54 @@ const saveWork = async () => {
           </section>
 
           <!-- AI 分析 -->
-          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-2 transition-colors">
+          <section class="bg-white dark:bg-neutral-800 rounded-2xl p-5 border border-indigo-50 dark:border-neutral-700 transition-colors">
+            <h2 class="text-base font-semibold mb-3 text-indigo-900 dark:text-neutral-200 transition-colors">
               AI 分析
             </h2>
             <button
               :disabled="store.isAnalyzing || (!selectedTextId && !customText.trim())"
-              class="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium
-                     hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-colors flex items-center justify-center gap-2"
+              class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/50
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-all duration-200 flex items-center justify-center gap-2
+                     hover:shadow-xl hover:shadow-indigo-300/50 hover:-translate-y-0.5
+                     active:translate-y-0"
+              style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);"
               @click="analyzeText"
             >
+              <svg v-if="store.isAnalyzing" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
               <span v-if="store.isAnalyzing">分析中...</span>
-              <span v-else>AI 分析课文</span>
+              <span v-else>✨ AI 分析课文</span>
             </button>
           </section>
 
           <!-- 场景编辑 -->
-          <section class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
-            <div class="flex items-center justify-between mb-2">
-              <h2 class="text-base font-semibold text-gray-900 dark:text-white transition-colors">
+          <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-100/30 p-5 border border-indigo-50 dark:border-gray-700 transition-colors">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-base font-semibold text-indigo-900 dark:text-indigo-300 transition-colors">
                 场景编辑
               </h2>
-              <span class="text-sm text-gray-500 dark:text-gray-400">{{ store.scenes.length }} 个场景</span>
+              <span class="text-sm text-indigo-600 dark:text-indigo-400 font-medium px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">{{ store.scenes.length }} 个场景</span>
             </div>
 
-            <div v-if="store.scenes.length === 0" class="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">
-              暂无场景，请先分析课文
+            <div v-if="store.scenes.length === 0" class="text-center py-8 text-gray-400 dark:text-neutral-500 text-sm">
+              <p class="mb-1">暂无场景</p>
+              <p class="text-xs">请先选择课文并点击 AI 分析</p>
             </div>
 
-            <div v-else class="space-y-2">
+            <div v-else class="space-y-3">
               <div
                 v-for="(scene, index) in store.scenes"
                 :key="index"
-                class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                class="p-4 border border-indigo-100 dark:border-neutral-600 rounded-xl bg-white dark:bg-neutral-700"
               >
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400">场景 {{ index + 1 }}</span>
+                  <span class="text-sm font-semibold text-indigo-700 dark:text-indigo-400">场景 {{ index + 1 }}</span>
                   <div class="flex gap-1">
                     <button
-                      class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 text-gray-600 dark:text-gray-300"
+                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
                       :disabled="index === 0"
                       title="上移"
                       @click="store.moveSceneUp(index)"
@@ -250,7 +303,7 @@ const saveWork = async () => {
                       ↑
                     </button>
                     <button
-                      class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-30 text-gray-600 dark:text-gray-300"
+                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
                       :disabled="index === store.scenes.length - 1"
                       title="下移"
                       @click="store.moveSceneDown(index)"
@@ -258,7 +311,7 @@ const saveWork = async () => {
                       ↓
                     </button>
                     <button
-                      class="p-1 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 rounded"
+                      class="w-7 h-7 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/30 text-red-400 hover:text-red-500 rounded-lg transition-colors"
                       title="删除"
                       @click="store.removeScene(index)"
                     >
@@ -269,9 +322,7 @@ const saveWork = async () => {
                 <textarea
                   v-model="scene.description_cn"
                   rows="2"
-                  class="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded mb-2
-                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                         placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-colors"
+                  class="w-full px-3 py-2 text-sm border border-indigo-100 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 transition-all"
                   placeholder="场景描述（中文）"
                   @blur="store.updateScene(index, { description_cn: scene.description_cn })"
                 />
@@ -281,18 +332,21 @@ const saveWork = async () => {
             <button
               v-if="store.scenes.length > 0"
               :disabled="store.isGenerating"
-              class="w-full mt-4 px-6 py-3 bg-green-600 text-white rounded-lg font-medium
-                     hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-colors"
+              class="w-full mt-4 px-6 py-3 text-white font-medium rounded-xl shadow-lg
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-all duration-200 flex items-center justify-center gap-2
+                     hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+              style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);"
               @click="generateImages"
             >
-              {{ store.isGenerating ? '生成中...' : '开始生成' }}
+              <span v-if="store.isGenerating">生成中...</span>
+              <span v-else>🎨 开始生成</span>
             </button>
           </section>
 
           <!-- 进度提示 -->
-          <section v-if="store.progressMsg" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 transition-colors">
-            <p class="text-blue-700 dark:text-blue-300 text-center">
+          <section v-if="store.progressMsg" class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 mt-4">
+            <p class="text-indigo-700 dark:text-indigo-300 text-center font-medium">
               {{ store.progressMsg }}
             </p>
           </section>
@@ -300,33 +354,27 @@ const saveWork = async () => {
 
         <!-- 右侧预览 -->
         <div class="w-1/2 flex flex-col">
-          <section class="bg-white dark:bg-gray-800 rounded-lg shadow flex-1 flex flex-col min-h-0 transition-colors">
-            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <h2 class="text-base font-semibold text-gray-900 dark:text-white transition-colors">
+          <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-lg shadow-indigo-100/30 flex-1 flex flex-col min-h-0 border border-indigo-50 dark:border-neutral-700 transition-colors">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-indigo-50 dark:border-neutral-700 flex-shrink-0">
+              <h2 class="text-base font-semibold text-indigo-900 dark:text-neutral-200 transition-colors">
                 图片预览
               </h2>
-              <span v-if="store.taskStatus" class="text-sm text-gray-500 dark:text-gray-400">
+              <span v-if="store.taskStatus" class="text-sm text-indigo-600 dark:text-indigo-400 font-medium px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">
                 {{ store.taskStatus.completed }}/{{ store.taskStatus.total }}
               </span>
             </div>
 
-            <!-- 无场景占位 -->
-            <div v-if="store.scenes.length === 0" class="flex-1 overflow-y-auto">
-              <div
-                v-for="i in 6"
-                :key="i"
-                class="border-b border-gray-200 dark:border-gray-700 last:border-b-0"
-              >
-                <div class="relative w-full bg-gray-100 dark:bg-gray-700 transition-colors" style="padding-bottom: 100%;">
-                  <div class="absolute inset-0 flex items-center justify-center">
-                    <span class="text-gray-400 dark:text-gray-500 text-sm">场景 {{ i }}</span>
-                  </div>
-                </div>
+            <!-- 空状态 -->
+            <div v-if="store.scenes.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-8">
+              <div class="w-20 h-20 mb-4 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                <span class="text-3xl">🎨</span>
               </div>
+              <p class="text-gray-500 dark:text-neutral-400 font-medium mb-1">暂无预览</p>
+              <p class="text-gray-400 dark:text-neutral-500 text-sm">选择课文并分析后将在这里显示</p>
             </div>
 
             <!-- 单张 -->
-            <div v-else-if="store.scenes.length === 1" class="flex-1 overflow-y-auto">
+            <div v-if="store.scenes.length === 1" class="flex-1 overflow-y-auto">
               <div class="relative w-full h-full flex items-center justify-center">
                 <img
                   v-if="store.taskStatus?.images[0]"
@@ -337,22 +385,23 @@ const saveWork = async () => {
                 >
                 <div
                   v-else
-                  class="w-full h-full flex items-center justify-center"
+                  class="absolute inset-0 flex flex-col items-center justify-center bg-indigo-50 dark:bg-neutral-700"
                 >
-                  <span class="text-gray-400">生成中...</span>
+                  <div class="w-8 h-8 border-2 border-indigo-300 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
+                  <span class="text-indigo-400 text-sm">生成中...</span>
                 </div>
-                <div class="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                  AI生成
+                <div class="absolute bottom-4 right-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs px-2 py-1 rounded-lg shadow">
+                  AI
                 </div>
               </div>
             </div>
 
             <!-- 多张 -->
-            <div v-else class="flex-1 overflow-y-auto">
+            <div v-if="store.scenes.length > 1" class="flex-1 overflow-y-auto">
               <div
                 v-for="(scene, index) in store.scenes"
                 :key="index"
-                class="border-b last:border-b-0"
+                class="border-b border-indigo-50 dark:border-neutral-700 last:border-b-0"
               >
                 <div class="relative w-full" style="padding-bottom: 100%;">
                   <img
@@ -364,15 +413,16 @@ const saveWork = async () => {
                   >
                   <div
                     v-else
-                    class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-colors"
+                    class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-900/20"
                   >
-                    <span class="text-gray-400 dark:text-gray-500">生成中...</span>
+                    <div class="w-8 h-8 border-2 border-indigo-300 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
+                    <span class="text-indigo-400 text-sm">生成中...</span>
                   </div>
                   <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
                     <p class="text-white text-xs">{{ scene.description_cn }}</p>
                   </div>
-                  <div class="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                    AI生成
+                  <div class="absolute top-2 right-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs px-2 py-1 rounded-lg shadow">
+                    AI
                   </div>
                 </div>
               </div>
@@ -380,13 +430,14 @@ const saveWork = async () => {
           </section>
 
           <!-- 保存 -->
-          <section v-if="store.isGeneratingComplete" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 transition-colors">
+          <section v-if="store.isGeneratingComplete" class="mt-4">
             <button
-              class="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-medium
-                     hover:bg-green-700 transition-colors"
+              class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-green-200/50 dark:shadow-green-900/50
+                     hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+              style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);"
               @click="saveWork"
             >
-              保存作品
+              💾 保存作品
             </button>
           </section>
         </div>

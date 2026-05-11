@@ -30,6 +30,9 @@ pnpm-debug.log*
 # System
 Thumbs.db
 
+# Claude
+.claude/
+
 # Test coverage
 coverage/
 .nyc_output/
