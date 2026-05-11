@@ -9,8 +9,10 @@ const { isDark, toggle } = useDarkMode()
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <!-- Logo -->
-          <NuxtLink to="/" class="flex items-center gap-2">
-            <span class="text-2xl">📚</span>
+          <NuxtLink to="/" class="flex items-center gap-2.5">
+            <div class="bg-primary-600 rounded-lg p-1.5">
+              <img src="/logo3.png" alt="logo" class="h-7 w-auto">
+            </div>
             <span class="text-xl font-bold text-primary-600 dark:text-primary-400">课文漫游</span>
           </NuxtLink>
 
