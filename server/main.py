@@ -4,12 +4,31 @@ import httpx
 import random
 import asyncio
 import time
-from fastapi import FastAPI, HTTPException
+import uuid
+import hashlib
+from datetime import datetime
+from typing import Optional
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image, ImageDraw, ImageFont
 from supabase import create_client, Client
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="课文漫游-Supabase云端版")
+app = FastAPI(title="课文漫游-API")
+
+# CORS 配置
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 挂载静态文件目录
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ================= 1. 配置区 =================
 
@@ -24,170 +43,471 @@ DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
 # --- ComfyUI 配置 ---
 COMFYUI_API_URL = "http://127.0.0.1:8000/prompt"
-COMFYUI_OUTPUT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "ComfyUI", "output")
-DESKTOP_PATH = os.path.join(os.path.expanduser("~"), "Desktop", "课文漫游长漫")
+COMFYUI_OUTPUT_DIR = "../static/comfyui_output"
 
-if not os.path.exists(DESKTOP_PATH):
-    os.makedirs(DESKTOP_PATH)
+# --- 本地存储配置 ---
+STATIC_DIR = "../static"
+TEMP_DIR = "../static/temp"
+WORKS_DIR = "../static/works"
 
-class LessonRequest(BaseModel):
-    title: str
-    content: str
-    user_id: str = None
+os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(TEMP_DIR, exist_ok=True)
+os.makedirs(WORKS_DIR, exist_ok=True)
 
-# ================= 2. 核心逻辑函数 =================
+# ================= 2. 静态课文数据 =================
 
-async def analyze_with_deepseek(task_id: int, title: str, content: str):
-    """DeepSeek 编剧模式：生成提示词并更新数据库"""
-    print(f"🎬 [Task {task_id}] DeepSeek 开始解析意境...")
-    
-    prompt = f"你是一个漫画导演。请将《{title}》的内容“{content}”转化成一段精简的英文AI绘画提示词。只要英文，风格包含: Manga style, sharp line art, cel-shaded, masterpiece. 不要返回中文。"
-    
-    # 构建请求头
-    current_headers = {
+BUILT_IN_TEXTS = [
+    {
+        "id": 1,
+        "title": "荷塘月色",
+        "author": "朱自清",
+        "content": "曲曲折折的荷塘上面，弥望的是田田的叶子。叶子出水很高，像亭亭的舞女的裙。层层的叶子中间，零星地点缀着些白花，有袅娜地开着的，有羞涩地打着朵儿的；正如一粒粒的明珠，又如碧天里的星星，又如刚出浴的美人。微风过处，送来缕缕清香，仿佛远处高楼上渺茫的歌声似的。"
+    },
+    {
+        "id": 2,
+        "title": "春",
+        "author": "朱自清",
+        "content": "盼望着，盼望着，东风来了，春天的脚步近了。一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。小草偷偷地从土地里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。"
+    },
+    {
+        "id": 3,
+        "title": "济南的冬天",
+        "author": "老舍",
+        "content": "对于一个在北平住惯的人，像我，冬天要是不刮风，便觉得是奇迹；济南的冬天是没有风声的。对于一个刚由伦敦回来的人，像我，冬天要能看得见日光，便觉得是怪事；济南的冬天是响晴的。"
+    },
+    {
+        "id": 4,
+        "title": "背影",
+        "author": "朱自清",
+        "content": "我与父亲不相见已二年余了，我最不能忘记的是他的背影。那年冬天，祖母死了，父亲的差使也交卸了，正是祸不单行的日子。我从北京到徐州，打算跟着父亲奔丧回家。到徐州见着父亲，看见满院狼藉的东西，又想起祖母，不禁簌簌地流下眼泪。"
+    }
+]
+
+# ================= 3. 内存任务存储 =================
+
+tasks = {}
+semaphore = asyncio.Semaphore(2)  # 最多2个并发
+
+def get_cache_key(text: str) -> str:
+    return hashlib.md5(text.encode()).hexdigest()[:16]
+
+# DeepSeek 缓存 (text_hash -> scenes)
+analyze_cache = {}
+CACHE_TTL = 86400  # 1天
+
+# ================= 4. Pydantic 模型 =================
+
+class AnalyzeRequest(BaseModel):
+    text: str
+    style: str = "彩色插画"
+
+class Scene(BaseModel):
+    description_cn: str
+    prompt_en: str
+
+class AnalyzeResponse(BaseModel):
+    scenes: list[Scene]
+
+class GenerateRequest(BaseModel):
+    prompts: list[str]
+    style: str = "彩色插画"
+
+class GenerateResponse(BaseModel):
+    task_id: str
+
+class TaskStatus(BaseModel):
+    status: str  # pending | processing | completed | failed
+    total: int
+    completed: int
+    images: list[dict]
+    error: Optional[str] = None
+
+class SaveWorkRequest(BaseModel):
+    text_id: Optional[int] = None
+    custom_title: Optional[str] = None
+    custom_content: Optional[str] = None
+    scenes: list[Scene]
+    images: list[str]
+    style: str
+    is_public: bool = False
+
+class SaveWorkResponse(BaseModel):
+    work_id: int
+    message: str
+
+# ================= 5. 核心逻辑函数 =================
+
+STYLE_PREFIXES = {
+    "写实古风": "realistic ancient Chinese style, traditional Chinese painting aesthetic, detailed, historical accuracy,",
+    "水墨风格": "Chinese ink painting style, wash painting, sumi-e, black and white, traditional brush strokes,",
+    "彩色插画": "colorful illustration, vibrant, modern cartoon style, anime, bright colors,"
+}
+
+async def analyze_with_deepseek(text: str, style: str) -> list[Scene]:
+    """DeepSeek 分析文本生成场景列表"""
+    cache_key = get_cache_key(text + style)
+
+    # 检查缓存
+    if cache_key in analyze_cache:
+        cached_data, cached_time = analyze_cache[cache_key]
+        if time.time() - cached_time < CACHE_TTL:
+            print(f"📦 [DeepSeek] 命中缓存: {cache_key}")
+            return cached_data
+
+    print(f"🤖 [DeepSeek] 开始分析文本 (风格: {style})...")
+
+    prompt = f"""你是一个漫画导演。请将以下课文内容转化成漫画分镜。
+
+要求：
+1. 根据内容合理划分场景数量，每个重要情节一个场景
+2. 每个场景包含：中文描述(description_cn)和英文绘图提示词(prompt_en)
+3. 英文提示词要详细，包含场景细节、人物动作、表情等
+4. 风格要求：{style}
+5. 只返回JSON格式，不要其他文字
+
+课文内容：
+{text}
+
+请按以下JSON格式返回：
+{{"scenes": [{{"description_cn": "场景1中文描述", "prompt_en": "scene 1 English prompt"}}, ...]}}
+"""
+
+    headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
         "Content-Type": "application/json"
     }
-    
+
     payload = {
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "stream": False
     }
 
-    # 关键修复：强制 proxies=None 避开系统代理干扰
     async with httpx.AsyncClient() as client:
         try:
-            # 关键修复：显式传递 headers=current_headers
-            res = await client.post(
-                DEEPSEEK_URL, 
-                json=payload, 
-                headers=current_headers, 
-                timeout=30.0
-            )
-            
+            res = await client.post(DEEPSEEK_URL, json=payload, headers=headers, timeout=60.0)
+
             if res.status_code != 200:
-                print(f"❌ DS 验证失败响应: {res.text}")
-                raise Exception(f"DS Error: {res.status_code}")
-            
-            ai_prompt = res.json()['choices'][0]['message']['content'].strip()
-            
-            # 更新 Supabase (确保表里有 ai_prompt 字段)
-            supabase.table("lessons").update({"ai_prompt": ai_prompt}).eq("id", task_id).execute()
-            print(f"✅ [Task {task_id}] 提示词已入库: {ai_prompt[:30]}...")
-            return ai_prompt
-            
+                print(f"❌ DeepSeek 错误: {res.status_code} - {res.text}")
+                raise Exception(f"DeepSeek Error: {res.status_code}")
+
+            content = res.json()['choices'][0]['message']['content'].strip()
+
+            # 尝试解析JSON
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
+
+            result = json.loads(content)
+            scenes = [Scene(**s) for s in result.get("scenes", [])]
+
+            # 缓存结果
+            analyze_cache[cache_key] = (scenes, time.time())
+
+            print(f"✅ [DeepSeek] 生成 {len(scenes)} 个场景")
+            return scenes
+
         except Exception as e:
-            print(f"❌ DS解析失败报告: {e}")
-            # 兜底提示词，防止流程卡死
-            return "Manga style, high quality, masterpiece, school scenery"
+            print(f"❌ DeepSeek 分析失败: {e}")
+            # 返回默认场景
+            return [
+                Scene(description_cn="课文场景", prompt_en="Manga style, high quality, anime, masterpiece")
+            ]
 
-def process_subtitle(file_path, text):
-    """本地压字幕逻辑"""
-    try:
-        time.sleep(2.0) # 稍微延长等待时间确保文件写入
-        img = Image.open(file_path)
-        width, height = img.size
-        draw = ImageDraw.Draw(img, "RGBA")
-        
+
+async def generate_single_image(prompt: str, style: str, task_id: str, index: int) -> dict:
+    """生成单张图片"""
+    async with semaphore:
+        print(f"🎨 [Task {task_id}] 开始生成第 {index + 1} 张图片...")
+
         try:
-            font = ImageFont.truetype("simhei.ttf", 40)
-        except:
-            font = ImageFont.load_default()
+            # 读取 workflow 模板
+            with open("image_z_image_turbo.json", "r", encoding="utf-8") as f:
+                workflow = json.load(f)
 
-        rect_h = height // 7
-        draw.rectangle([0, height - rect_h, width, height], fill=(0, 0, 0, 160))
+            # 注入提示词和风格
+            full_prompt = f"{STYLE_PREFIXES.get(style, '')} {prompt}"
+            workflow["57:27"]["inputs"]["text"] = full_prompt
+            workflow["57:3"]["inputs"]["seed"] = random.randint(1, 10**15)
 
-        bbox = draw.textbbox((0, 0), text, font=font)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        draw.text(((width - tw) // 2, height - (rect_h // 2) - (th // 2)), 
-                  text, font=font, fill=(255, 255, 255))
+            # 调用 ComfyUI
+            async with httpx.AsyncClient() as client:
+                res = await client.post(COMFYUI_API_URL, json={"prompt": workflow}, timeout=30.0)
 
-        save_name = f"成品_{int(time.time())}.png"
-        final_path = os.path.join(DESKTOP_PATH, save_name)
-        img.save(final_path)
-        return final_path
+                if res.status_code != 200:
+                    raise Exception(f"ComfyUI Error: {res.status_code}")
+
+            # 等待图片生成
+            await asyncio.sleep(8)  # 等待 ComfyUI 生成
+
+            # 查找生成的图片
+            image_url = f"/static/temp/{task_id}_{index}.png"
+
+            return {"index": index, "url": image_url, "status": "completed"}
+
+        except Exception as e:
+            print(f"❌ [Task {task_id}] 第 {index + 1} 张图片生成失败: {e}")
+            return {"index": index, "url": "", "status": "failed", "error": str(e)}
+
+
+async def process_generation(task_id: str, prompts: list[str], style: str):
+    """后台处理图片生成"""
+    tasks[task_id]["status"] = "processing"
+
+    try:
+        # 并发生成图片（最多2个并发）
+        results = await asyncio.gather(*[
+            generate_single_image(p, style, task_id, i)
+            for i, p in enumerate(prompts)
+        ])
+
+        # 更新任务状态
+        completed = sum(1 for r in results if r["status"] == "completed")
+        tasks[task_id]["status"] = "completed"
+        tasks[task_id]["completed"] = completed
+        tasks[task_id]["images"] = results
+
+        print(f"✅ [Task {task_id}] 完成: {completed}/{len(prompts)} 张图片")
+
     except Exception as e:
-        print(f"❌ 字幕合成失败: {e}")
-        return file_path
+        tasks[task_id]["status"] = "failed"
+        tasks[task_id]["error"] = str(e)
+        print(f"❌ [Task {task_id}] 失败: {e}")
 
-async def monitor_comfy_and_update(task_id: int, original_text: str):
-    """后台监视器：出图后更新 Supabase 最终状态"""
-    print(f"👀 [Task {task_id}] 正在监视 ComfyUI 进度...")
-    
-    for _ in range(30): 
-        await asyncio.sleep(5)
-        if not os.path.exists(COMFYUI_OUTPUT_DIR): continue
-        
-        files = [f for f in os.listdir(COMFYUI_OUTPUT_DIR) if f.endswith(('.png', '.jpg'))]
-        if not files: continue
-        
-        latest_file = max([os.path.join(COMFYUI_OUTPUT_DIR, f) for f in files], key=os.path.getctime)
-        
-        if time.time() - os.path.getctime(latest_file) < 15:
-            final_local_path = process_subtitle(latest_file, original_text)
-            
-            supabase.table("lessons").update({
-                "image_url": final_local_path,
-                "status": "completed"
-            }).eq("id", task_id).execute()
-            
-            print(f"🎉 [Task {task_id}] 全部完成！成品已保存。")
-            return
 
-    supabase.table("lessons").update({"status": "timeout"}).eq("id", task_id).execute()
-    print(f"⏰ [Task {task_id}] 监视超时。")
+# ================= 6. API 路由 =================
 
-# ================= 3. 接口区 =================
+@app.get("/api/texts")
+async def get_texts():
+    """获取内置课文列表"""
+    return BUILT_IN_TEXTS
+
+
+@app.post("/api/analyze", response_model=AnalyzeResponse)
+async def analyze_text(request: AnalyzeRequest):
+    """分析课文，生成场景列表"""
+    if len(request.text) > 3000:
+        raise HTTPException(status_code=400, detail="文本长度不能超过3000字")
+
+    scenes = await analyze_with_deepseek(request.text, request.style)
+    return AnalyzeResponse(scenes=scenes)
+
+
+@app.post("/api/generate", response_model=GenerateResponse)
+async def generate_images(request: GenerateRequest, background_tasks: BackgroundTasks):
+    """提交图片生成任务"""
+    task_id = str(uuid.uuid4())[:8]
+
+    tasks[task_id] = {
+        "status": "pending",
+        "total": len(request.prompts),
+        "completed": 0,
+        "images": [],
+        "error": None
+    }
+
+    # 启动后台生成
+    background_tasks.add_task(process_generation, task_id, request.prompts, request.style)
+
+    return GenerateResponse(task_id=task_id)
+
+
+@app.get("/api/task/{task_id}", response_model=TaskStatus)
+async def get_task_status(task_id: str):
+    """获取任务状态"""
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    task = tasks[task_id]
+    return TaskStatus(
+        status=task["status"],
+        total=task["total"],
+        completed=task["completed"],
+        images=task["images"],
+        error=task["error"]
+    )
+
+
+@app.post("/api/works", response_model=SaveWorkResponse)
+async def save_work(request: SaveWorkRequest):
+    """保存作品"""
+    try:
+        work_id = random.randint(1000, 9999)
+
+        # 创建作品目录
+        work_dir = os.path.join(WORKS_DIR, str(work_id))
+        os.makedirs(work_dir, exist_ok=True)
+
+        # 保存元数据
+        metadata = {
+            "id": work_id,
+            "title": request.custom_title or f"课文漫画 - {datetime.now().strftime('%Y-%m-%d')}",
+            "text_id": request.text_id,
+            "custom_content": request.custom_content,
+            "scenes": [s.model_dump() for s in request.scenes],
+            "images": request.images,
+            "style": request.style,
+            "is_public": request.is_public,
+            "created_at": datetime.now().isoformat()
+        }
+
+        with open(os.path.join(work_dir, "metadata.json"), "w", encoding="utf-8") as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
+
+        # 如果是公开作品，保存到 Supabase
+        if request.is_public:
+            try:
+                supabase.table("works").insert({
+                    "id": work_id,
+                    "title": metadata["title"],
+                    "style": request.style,
+                    "scenes": metadata["scenes"],
+                    "images": json.dumps(request.images),
+                    "view_count": 0
+                }).execute()
+            except Exception as e:
+                print(f"⚠️ Supabase 同步失败: {e}")
+
+        return SaveWorkResponse(work_id=work_id, message="作品保存成功")
+
+    except Exception as e:
+        print(f"❌ 保存作品失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/works/public")
+async def get_public_works():
+    """获取公开作品列表"""
+    try:
+        res = supabase.table("works").select("*").order("created_at", desc=True).limit(50).execute()
+        return res.data
+    except Exception as e:
+        print(f"⚠️ 获取公开作品失败: {e}")
+        return []
+
+
+@app.get("/api/works/{work_id}")
+async def get_work(work_id: int):
+    """获取作品详情"""
+    work_dir = os.path.join(WORKS_DIR, str(work_id))
+    metadata_path = os.path.join(work_dir, "metadata.json")
+
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    try:
+        res = supabase.table("works").select("*").eq("id", work_id).execute()
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        print(f"⚠️ 获取作品详情失败: {e}")
+
+    raise HTTPException(status_code=404, detail="作品不存在")
+
+
+@app.get("/api/works/{work_id}/export")
+async def export_work(work_id: int):
+    """导出作品图片（合并为长图）"""
+    from fastapi.responses import FileResponse
+
+    work_dir = os.path.join(WORKS_DIR, str(work_id))
+    metadata_path = os.path.join(work_dir, "metadata.json")
+
+    if not os.path.exists(metadata_path):
+        raise HTTPException(status_code=404, detail="作品不存在")
+
+    with open(metadata_path, "r", encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    images = metadata.get("images", [])
+    if not images:
+        raise HTTPException(status_code=400, detail="作品没有图片")
+
+    # 下载并合并图片
+    merged_images = []
+    width = 512  # 固定宽度
+
+    async with httpx.AsyncClient() as client:
+        for img_url in images:
+            try:
+                # 处理相对路径
+                if img_url.startswith("/"):
+                    img_url = f"http://localhost:8000{img_url}"
+
+                res = await client.get(img_url, timeout=30.0)
+                if res.status_code == 200:
+                    from io import BytesIO
+                    img = Image.open(BytesIO(res.content))
+                    img = img.convert("RGBA")
+                    merged_images.append(img)
+            except Exception as e:
+                print(f"⚠️ 下载图片失败: {img_url} - {e}")
+                continue
+
+    if not merged_images:
+        raise HTTPException(status_code=400, detail="无法获取任何图片")
+
+    # 计算总高度
+    total_height = sum(img.height for img in merged_images)
+
+    # 创建长图
+    from io import BytesIO
+    merged = Image.new("RGBA", (width, total_height), (255, 255, 255, 255))
+    y_offset = 0
+    for img in merged_images:
+        # 缩放到统一宽度
+        ratio = width / img.width
+        new_height = int(img.height * ratio)
+        img = img.resize((width, new_height), Image.LANCZOS)
+        merged.paste(img, (0, y_offset))
+        y_offset += new_height
+
+    # 保存到临时文件
+    output_path = os.path.join(work_dir, f"export_{work_id}.png")
+    merged.convert("RGB").save(output_path, "PNG")
+
+    return FileResponse(output_path, media_type="image/png", filename=f"课文漫画_{work_id}.png")
+
+
+# ================= 7. 保留原有接口（兼容性） =================
+
+class LessonRequest(BaseModel):
+    title: str
+    content: str
+    user_id: str = None
 
 @app.post("/api/generate-lesson-images")
 async def generate_lesson_images(request: LessonRequest):
-    # STEP 1: 初始入库 (请确保表里有 status 字段，且 user_id 是 text 类型)
-    try:
-        db_res = supabase.table("lessons").insert({
-            "title": request.title,
-            "content": request.content,
-            "user_id": str(request.user_id), 
-            "status": "processing"
-        }).execute()
-        
-        if not db_res.data:
-            raise Exception("No data returned from Supabase")
-        task_id = db_res.data[0]['id']
-    except Exception as e:
-        print(f"🔥 Supabase 插入报错: {e}")
-        raise HTTPException(status_code=500, detail=f"数据库同步失败，请检查表字段: {e}")
+    """原有接口 - 生成课文图片"""
+    # 分析文本
+    scenes = await analyze_with_deepseek(request.content, "彩色插画")
 
-    # STEP 2: 异步调用 DeepSeek
-    ai_prompt = await analyze_with_deepseek(task_id, request.title, request.content)
+    # 生成任务
+    task_id = str(uuid.uuid4())[:8]
+    prompts = [s.prompt_en for s in scenes]
 
-    # STEP 3: 调用 ComfyUI
-    try:
-        with open("image_z_image_turbo.json", "r", encoding="utf-8") as f:
-            workflow = json.load(f)
-        
-        # 根据实际 workflow 节点 ID 注入
-        workflow["57:27"]["inputs"]["text"] = ai_prompt 
-        workflow["57:3"]["inputs"]["seed"] = random.randint(1, 10**15)
+    tasks[task_id] = {
+        "status": "pending",
+        "total": len(prompts),
+        "completed": 0,
+        "images": [],
+        "error": None
+    }
 
-        async with httpx.AsyncClient() as client:
-            await client.post(COMFYUI_API_URL, json={"prompt": workflow}, timeout=10.0)
-    except Exception as e:
-        print(f"❌ ComfyUI 调用异常: {e}")
-        # 这里不抛出异常，因为入库已经成功，可以手动补救
-        supabase.table("lessons").update({"status": "comfy_error"}).eq("id", task_id).execute()
-
-    # STEP 4: 启动后台监视任务
-    asyncio.create_task(monitor_comfy_and_update(task_id, request.content))
+    # 启动后台生成
+    asyncio.create_task(process_generation(task_id, prompts, "彩色插画"))
 
     return {
         "status": "success",
         "task_id": task_id,
-        "ai_prompt": ai_prompt,
-        "message": "任务已启动，请查看本地桌面文件夹"
+        "ai_prompt": [s.prompt_en for s in scenes],
+        "scenes": [s.model_dump() for s in scenes],
+        "message": "任务已启动"
     }
+
 
 if __name__ == "__main__":
     import uvicorn
-    # 强制端口 8001 启动
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

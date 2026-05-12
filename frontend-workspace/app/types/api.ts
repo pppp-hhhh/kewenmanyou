@@ -26,6 +26,8 @@ export interface GenerateResponse {
 export interface TaskImage {
   index: number
   url: string
+  status?: 'completed' | 'failed' | 'processing'
+  error?: string
 }
 
 export interface TaskStatus {

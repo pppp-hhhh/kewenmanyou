@@ -50,6 +50,27 @@ export const useWorkspaceStore = defineStore('workspace', {
       if (!state.taskStatus || state.taskStatus.total === 0) return 0
       return Math.round((state.taskStatus.completed / state.taskStatus.total) * 100)
     },
+
+    currentGeneratingIndex: (state): number => {
+      if (!state.taskStatus) return 0
+      // 找到第一个没有生成的图片索引
+      for (let i = 0; i < state.taskStatus.images.length; i++) {
+        if (!state.taskStatus.images[i]?.url) return i
+      }
+      return state.taskStatus.completed
+    },
+
+    displayedScenes: (state): Scene[] => {
+      if (!state.taskStatus || state.taskStatus.status !== 'completed') {
+        // 生成未完成时，只显示到当前正在生成的那一张
+        const currentIndex = state.taskStatus
+          ? Math.min(state.taskStatus.completed, state.scenes.length - 1)
+          : 0
+        return state.scenes.slice(0, currentIndex + 1)
+      }
+      // 生成完成后，显示所有场景
+      return state.scenes
+    },
   },
 
   actions: {

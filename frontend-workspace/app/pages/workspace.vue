@@ -119,6 +119,50 @@ const saveWork = async () => {
     store.setProgressMsg('保存失败，请重试')
   }
 }
+
+// 导出长图
+const exportWork = async () => {
+  if (!store.taskStatus?.images.length) {
+    alert('没有可导出的图片')
+    return
+  }
+
+  store.setProgressMsg('正在生成导出文件...')
+
+  try {
+    // 先保存作品获取 work_id
+    const result = await $fetch<{ work_id: number; message: string }>('/api/works', {
+      method: 'POST',
+      body: {
+        custom_title: `课文漫画 - ${new Date().toLocaleDateString()}`,
+        scenes: store.scenes,
+        images: store.taskStatus.images.map((i: any) => i.url),
+        style: selectedStyle.value,
+        is_public: false,
+      },
+    })
+
+    // 通过前端代理下载
+    const response = await fetch(`/api/works/${result.work_id}/export`)
+    const blob = await response.blob()
+
+    // 创建下载链接
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `课文漫画_${result.work_id}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    store.setProgressMsg('导出成功！')
+  }
+  catch (error) {
+    console.error('导出失败:', error)
+    store.setProgressMsg('导出失败，请重试')
+  }
+}
 </script>
 
 <template>
@@ -376,19 +420,35 @@ const saveWork = async () => {
             <!-- 单张 -->
             <div v-if="store.scenes.length === 1" class="flex-1 overflow-y-auto">
               <div class="relative w-full h-full flex items-center justify-center">
+                <!-- 生成成功 -->
                 <img
-                  v-if="store.taskStatus?.images[0]"
+                  v-if="store.taskStatus?.images[0]?.status === 'completed'"
                   :src="store.taskStatus.images[0].url"
                   :alt="store.scenes[0].description_cn"
                   class="max-w-full max-h-full object-contain"
                   loading="lazy"
                 >
+                <!-- 正在生成 -->
                 <div
-                  v-else
+                  v-else-if="store.taskStatus?.images[0]?.status === 'processing'"
                   class="absolute inset-0 flex flex-col items-center justify-center bg-indigo-50 dark:bg-neutral-700"
                 >
                   <div class="w-8 h-8 border-2 border-indigo-300 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
                   <span class="text-indigo-400 text-sm">生成中...</span>
+                </div>
+                <!-- 生成失败 -->
+                <div
+                  v-else-if="store.taskStatus?.images[0]?.status === 'failed'"
+                  class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 dark:bg-neutral-700"
+                >
+                  <span class="text-red-400 text-sm">生成失败</span>
+                </div>
+                <!-- 等待生成 -->
+                <div
+                  v-else
+                  class="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-neutral-700"
+                >
+                  <span class="text-gray-400 text-sm">等待生成</span>
                 </div>
                 <div class="absolute bottom-4 right-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs px-2 py-1 rounded-lg shadow">
                   AI
@@ -399,27 +459,40 @@ const saveWork = async () => {
             <!-- 多张 -->
             <div v-if="store.scenes.length > 1" class="flex-1 overflow-y-auto">
               <div
-                v-for="(scene, index) in store.scenes"
+                v-for="(scene, index) in store.displayedScenes"
                 :key="index"
                 class="border-b border-indigo-50 dark:border-neutral-700 last:border-b-0"
               >
                 <div class="relative w-full" style="padding-bottom: 100%;">
+                  <!-- 生成成功：显示图片 -->
                   <img
-                    v-if="store.taskStatus?.images[index]"
+                    v-if="store.taskStatus?.images[index]?.status === 'completed'"
                     :src="store.taskStatus.images[index].url"
                     :alt="scene.description_cn"
                     class="absolute inset-0 w-full h-full object-contain"
                     loading="lazy"
                   >
+                  <!-- 正在生成中 -->
                   <div
-                    v-else
+                    v-else-if="store.taskStatus?.images[index]?.status === 'processing'"
                     class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-indigo-900/20"
                   >
                     <div class="w-8 h-8 border-2 border-indigo-300 border-t-indigo-500 rounded-full animate-spin mb-2"></div>
                     <span class="text-indigo-400 text-sm">生成中...</span>
                   </div>
-                  <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
-                    <p class="text-white text-xs">{{ scene.description_cn }}</p>
+                  <!-- 生成失败 -->
+                  <div
+                    v-else-if="store.taskStatus?.images[index]?.status === 'failed'"
+                    class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-800 dark:to-red-900/20"
+                  >
+                    <span class="text-red-400 text-sm">生成失败</span>
+                  </div>
+                  <!-- 等待生成（占位） -->
+                  <div
+                    v-else
+                    class="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900/20"
+                  >
+                    <span class="text-gray-400 text-sm">等待生成</span>
                   </div>
                   <div class="absolute top-2 right-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs px-2 py-1 rounded-lg shadow">
                     AI
@@ -429,8 +502,8 @@ const saveWork = async () => {
             </div>
           </section>
 
-          <!-- 保存 -->
-          <section v-if="store.isGeneratingComplete" class="mt-4">
+          <!-- 保存 & 导出 -->
+          <section v-if="store.isGeneratingComplete" class="mt-4 space-y-2">
             <button
               class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-green-200/50 dark:shadow-green-900/50
                      hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
@@ -438,6 +511,14 @@ const saveWork = async () => {
               @click="saveWork"
             >
               💾 保存作品
+            </button>
+            <button
+              class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-purple-200/50 dark:shadow-purple-900/50
+                     hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+              style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);"
+              @click="exportWork"
+            >
+              📥 导出长图
             </button>
           </section>
         </div>
