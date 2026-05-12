@@ -19,7 +19,7 @@ DEEPSEEK_API_KEY = "sk-c9ea6887cf524832bcd670fd82ed603e".strip()
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
 COMFYUI_API_URL = "http://127.0.0.1:8000/prompt"
-COMFYUI_OUTPUT_DIR = r"C:\Users\Administrator\Documents\ComfyUI\output" 
+COMFYUI_OUTPUT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "ComfyUI", "output")
 DESKTOP_PATH = os.path.join(os.path.expanduser("~"), "Desktop", "课文漫游长漫")
 
 if not os.path.exists(DESKTOP_PATH):
