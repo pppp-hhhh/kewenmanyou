@@ -42,7 +42,7 @@ DEEPSEEK_API_KEY = "sk-c9ea6887cf524832bcd670fd82ed603e".strip()
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
 # --- ComfyUI 配置 (远程服务器) ---
-COMFYUI_API_URL = "http://frp-net.com:25385/prompt"
+COMFYUI_API_URL = "http://localhost:8188/prompt"
 COMFYUI_OUTPUT_DIR = "../static/comfyui_output"
 
 # --- 本地存储配置 ---
