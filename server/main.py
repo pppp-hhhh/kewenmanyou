@@ -126,6 +126,7 @@ class SaveWorkRequest(BaseModel):
     text_id: Optional[int] = None
     custom_title: Optional[str] = None
     custom_content: Optional[str] = None
+    thumbnail: Optional[str] = None
     scenes: list[Scene]
     images: list[str]
     style: str
@@ -331,45 +332,21 @@ async def get_task_status(task_id: str):
 
 @app.post("/api/works", response_model=SaveWorkResponse)
 async def save_work(request: SaveWorkRequest):
-    """保存作品"""
+    """保存作品到 Supabase"""
     try:
-        work_id = random.randint(1000, 9999)
-
-        # 创建作品目录
-        work_dir = os.path.join(WORKS_DIR, str(work_id))
-        os.makedirs(work_dir, exist_ok=True)
-
-        # 保存元数据
-        metadata = {
-            "id": work_id,
+        res = supabase.table("works").insert({
             "title": request.custom_title or f"课文漫画 - {datetime.now().strftime('%Y-%m-%d')}",
             "text_id": request.text_id,
             "custom_content": request.custom_content,
+            "thumbnail": request.thumbnail,
             "scenes": [s.model_dump() for s in request.scenes],
-            "images": request.images,
+            "images": json.dumps(request.images),
             "style": request.style,
             "is_public": request.is_public,
-            "created_at": datetime.now().isoformat()
-        }
+            "view_count": 0
+        }).execute()
 
-        with open(os.path.join(work_dir, "metadata.json"), "w", encoding="utf-8") as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=2)
-
-        # 如果是公开作品，保存到 Supabase
-        if request.is_public:
-            try:
-                res = supabase.table("works").insert({
-                    "title": metadata["title"],
-                    "style": request.style,
-                    "scenes": metadata["scenes"],
-                    "images": json.dumps(request.images),
-                    "view_count": 0
-                }).execute()
-                if res.data:
-                    work_id = res.data[0].get("id", work_id)
-            except Exception as e:
-                print(f"⚠️ Supabase 同步失败: {e}")
-
+        work_id = res.data[0].get("id") if res.data else random.randint(1000, 9999)
         return SaveWorkResponse(work_id=work_id, message="作品保存成功")
 
     except Exception as e:
@@ -380,31 +357,16 @@ async def save_work(request: SaveWorkRequest):
 @app.get("/api/works/public")
 async def get_public_works():
     """获取公开作品列表"""
-    try:
-        res = supabase.table("works").select("*").order("created_at", desc=True).limit(50).execute()
-        return res.data
-    except Exception as e:
-        print(f"⚠️ 获取公开作品失败: {e}")
-        return []
+    res = supabase.table("works").select("*").eq("is_public", True).order("created_at", desc=True).limit(50).execute()
+    return res.data
 
 
 @app.get("/api/works/{work_id}")
 async def get_work(work_id: int):
     """获取作品详情"""
-    work_dir = os.path.join(WORKS_DIR, str(work_id))
-    metadata_path = os.path.join(work_dir, "metadata.json")
-
-    if os.path.exists(metadata_path):
-        with open(metadata_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    try:
-        res = supabase.table("works").select("*").eq("id", work_id).execute()
-        if res.data:
-            return res.data[0]
-    except Exception as e:
-        print(f"⚠️ 获取作品详情失败: {e}")
-
+    res = supabase.table("works").select("*").eq("id", work_id).execute()
+    if res.data:
+        return res.data[0]
     raise HTTPException(status_code=404, detail="作品不存在")
 
 
@@ -543,12 +505,8 @@ class UpdateWorkRequest(BaseModel):
 @app.get("/api/works")
 async def get_all_works():
     """获取所有作品"""
-    try:
-        res = supabase.table("works").select("*").order("created_at", desc=True).execute()
-        return res.data
-    except Exception as e:
-        print(f"⚠️ 获取作品列表失败: {e}")
-        return []
+    res = supabase.table("works").select("*").order("created_at", desc=True).execute()
+    return res.data
 
 @app.put("/api/works/{work_id}")
 async def update_work(work_id: int, request: UpdateWorkRequest):
@@ -645,6 +603,33 @@ async def delete_lesson(lesson_id: int):
         raise
     except Exception as e:
         print(f"❌ 删除课文失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ================= 文件上传 =================
+from fastapi import UploadFile, File
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """上传图片文件，返回 URL"""
+    try:
+        # 确保目录存在
+        upload_dir = os.path.join(STATIC_DIR, "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # 生成唯一文件名
+        ext = os.path.splitext(file.filename)[1] if file.filename else ".png"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        filepath = os.path.join(upload_dir, filename)
+
+        # 保存文件
+        content = await file.read()
+        with open(filepath, "wb") as f:
+            f.write(content)
+
+        return {"url": f"/static/uploads/{filename}"}
+    except Exception as e:
+        print(f"❌ 上传文件失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -42,6 +42,7 @@ export interface SaveWorkRequest {
   text_id?: number
   custom_title?: string
   custom_content?: string
+  thumbnail?: string
   scenes: Scene[]
   images: string[]
   style: string

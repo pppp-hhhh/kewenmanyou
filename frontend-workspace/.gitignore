@@ -16,14 +16,12 @@ logs
 # Browser sessions
 .browser-sessions/
 
-# Claude / Codex
+# Claude
 .claude/
-.codex/
-
+.codex
 # Local configs
 .npmrc
 .nuxtrc
-CLAUDE.md
 
 # Misc
 .DS_Store

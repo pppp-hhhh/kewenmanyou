@@ -96,6 +96,7 @@ const deleteLesson = async (id: number) => {
 interface Work {
   id: number
   title: string
+  content?: string  // 课文内容/描述
   style: string
   scenes: any[]
   images: any[]
@@ -106,6 +107,7 @@ interface Work {
 const works = ref<Work[]>([])
 const worksLoading = ref(false)
 const workTitle = ref('')
+const workContent = ref('')  // 课文内容/描述
 const workStyle = ref<StyleType>('彩色插画')
 const scenes = ref([{ description_cn: '', prompt_en: '' }])
 const imageUrls = ref([''])
@@ -127,6 +129,7 @@ const fetchWorks = async () => {
 
 const resetWorkForm = () => {
   workTitle.value = ''
+  workContent.value = ''
   workStyle.value = '彩色插画'
   scenes.value = [{ description_cn: '', prompt_en: '' }]
   imageUrls.value = ['']
@@ -152,6 +155,7 @@ const addWork = async () => {
       method: 'POST',
       body: {
         custom_title: workTitle.value,
+        custom_content: workContent.value,
         scenes: validScenes,
         images: validImages,
         style: workStyle.value,
@@ -171,6 +175,7 @@ const addWork = async () => {
 const editWork = (work: Work) => {
   workEditing.value = work.id
   workTitle.value = work.title
+  workContent.value = work.content || ''
   workStyle.value = work.style as StyleType
   scenes.value = work.scenes && work.scenes.length ? work.scenes : [{ description_cn: '', prompt_en: '' }]
   imageUrls.value = work.images && work.images.length ? work.images : ['']
@@ -188,6 +193,7 @@ const saveWork = async (work: Work) => {
       method: 'PUT',
       body: {
         title: workTitle.value,
+        content: workContent.value,
         style: workStyle.value,
         scenes: scenes.value,
         images: imageUrls.value,
@@ -346,149 +352,61 @@ onMounted(() => {
 
           <!-- 作品管理 -->
           <template v-if="activeTab === 'works'">
-            <!-- 表单 -->
-            <section class="bg-white dark:bg-neutral-800 rounded-2xl p-5 border border-indigo-50 dark:border-neutral-700">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold text-indigo-900 dark:text-neutral-200">
-                  {{ workEditing ? '✏️ 编辑作品' : '➕ 添加作品' }}
-                </h3>
-                <span v-if="workMessage" :class="workMessage.includes('成功') ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'" class="text-sm font-medium">
-                  {{ workMessage }}
-                </span>
-              </div>
-              <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm text-gray-600 dark:text-neutral-400 mb-2">标题</label>
-                    <input
-                      v-model="workTitle"
-                      type="text"
-                      placeholder="输入作品标题"
-                      class="w-full px-4 py-2.5 bg-gray-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-sm text-gray-600 dark:text-neutral-400 mb-2">画风</label>
-                    <select
-                      v-model="workStyle"
-                      class="w-full px-4 py-2.5 bg-gray-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-600 rounded-xl text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all appearance-none cursor-pointer"
-                    >
-                      <option v-for="style in STYLE_OPTIONS" :key="style" :value="style">{{ style }}</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex justify-between items-center mb-2">
-                    <label class="text-sm text-gray-600 dark:text-neutral-400">场景</label>
-                    <button @click="addScene" class="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">+ 添加</button>
-                  </div>
-                  <div class="space-y-2">
-                    <div v-for="(scene, i) in scenes" :key="i" class="flex gap-2 items-center">
-                      <span class="text-xs text-gray-400 dark:text-neutral-600 w-5 text-center">{{ i + 1 }}</span>
-                      <input
-                        v-model="scene.description_cn"
-                        type="text"
-                        placeholder="中文描述"
-                        class="flex-1 px-3 py-2 bg-gray-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-sm"
-                      />
-                      <input
-                        v-model="scene.prompt_en"
-                        type="text"
-                        placeholder="Prompt"
-                        class="flex-1 px-3 py-2 bg-gray-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-sm"
-                      />
-                      <button @click="removeScene(i)" :disabled="scenes.length === 1" class="text-gray-400 dark:text-neutral-600 hover:text-red-500 dark:hover:text-red-400 disabled:opacity-30 transition-colors w-6">✕</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex justify-between items-center mb-2">
-                    <label class="text-sm text-gray-600 dark:text-neutral-400">图片</label>
-                    <button @click="addImage" class="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">+ 添加</button>
-                  </div>
-                  <div class="space-y-2">
-                    <div v-for="(url, i) in imageUrls" :key="i" class="flex gap-2 items-center">
-                      <span class="text-xs text-gray-400 dark:text-neutral-600 w-5 text-center">{{ i + 1 }}</span>
-                      <input
-                        v-model="imageUrls[i]"
-                        type="text"
-                        placeholder="图片 URL"
-                        class="flex-1 px-3 py-2 bg-gray-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-sm"
-                      />
-                      <div v-if="url.trim()" class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-neutral-700 overflow-hidden flex-shrink-0">
-                        <img :src="url" class="w-full h-full object-cover" @error="$event.target.style.display='none'" />
-                      </div>
-                      <button @click="removeImage(i)" :disabled="imageUrls.length === 1" class="text-gray-400 dark:text-neutral-600 hover:text-red-500 dark:hover:text-red-400 disabled:opacity-30 transition-colors w-6">✕</button>
-                    </div>
-                  </div>
-                </div>
-
+            <!-- 列表头部 -->
+            <div class="bg-white dark:bg-neutral-800 rounded-2xl border border-indigo-50 dark:border-neutral-700 mb-4">
+              <div class="px-6 py-4 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                  <input v-model="workPublic" type="checkbox" id="pub" class="w-4 h-4 rounded bg-gray-50 dark:bg-neutral-900 border-indigo-200 dark:border-neutral-600 text-indigo-500 focus:ring-indigo-500 cursor-pointer" />
-                  <label for="pub" class="text-sm text-gray-600 dark:text-neutral-400 cursor-pointer">同步到展示广场</label>
+                  <span class="font-semibold text-indigo-900 dark:text-white">作品列表</span>
+                  <span class="text-xs text-indigo-600 dark:text-indigo-400 font-medium px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">{{ works.length }} 个</span>
                 </div>
-
-                <div class="flex gap-3">
-                  <button
-                    v-if="workEditing"
-                    @click="cancelEditWork"
-                    class="px-5 py-2.5 border border-indigo-100 dark:border-neutral-600 text-gray-600 dark:text-neutral-400 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all text-sm font-medium"
-                  >
-                    取消
-                  </button>
-                  <button
-                    @click="workEditing ? saveWork(works.find(w => w.id === workEditing) || works[0]) : addWork()"
-                    :disabled="workLoading"
-                    class="px-5 py-2.5 rounded-xl font-medium text-white transition-all text-sm disabled:opacity-50"
-                    style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);"
-                  >
-                    {{ workLoading ? '处理中...' : workEditing ? '保存' : '添加' }}
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <!-- 列表 -->
-            <section class="bg-white dark:bg-neutral-800 rounded-2xl border border-indigo-50 dark:border-neutral-700 overflow-hidden">
-              <div class="px-5 py-4 border-b border-indigo-50 dark:border-neutral-700 flex justify-between items-center">
-                <span class="font-semibold text-indigo-900 dark:text-white">作品列表</span>
-                <span class="text-sm text-indigo-600 dark:text-indigo-400 font-medium">{{ works.length }} 个</span>
-              </div>
-              <div v-if="worksLoading" class="p-12 text-center text-gray-400 dark:text-neutral-500">加载中...</div>
-              <div v-else-if="works.length === 0" class="p-12 text-center text-gray-400 dark:text-neutral-500">暂无作品</div>
-              <div v-else class="divide-y divide-indigo-50 dark:divide-neutral-700">
-                <div
-                  v-for="work in works"
-                  :key="work.id"
-                  class="px-5 py-4 flex justify-between items-center hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-colors"
+                <NuxtLink
+                  to="/add-work"
+                  class="px-4 py-2 rounded-xl font-medium text-white transition-all text-sm"
+                  style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);"
                 >
-                  <div class="flex items-center gap-4 flex-1 min-w-0">
-                    <div v-if="work.images && work.images.length" class="w-12 h-12 rounded-xl bg-gray-100 dark:bg-neutral-700 overflow-hidden flex-shrink-0">
-                      <img :src="work.images[0]" class="w-full h-full object-cover" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-gray-900 dark:text-white text-sm font-medium truncate">{{ work.title }}</div>
-                      <div class="flex gap-2 mt-2">
-                        <span class="text-xs px-2 py-0.5 rounded-lg font-medium" :class="{
-                          'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400': work.style === '写实古风',
-                          'bg-gray-100 text-gray-700 dark:bg-neutral-700 dark:text-neutral-300': work.style === '水墨风格',
-                          'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400': work.style === '彩色插画',
-                        }">{{ work.style }}</span>
-                        <span class="text-xs px-2 py-0.5 rounded-lg font-medium" :class="work.is_public ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-neutral-700 dark:text-neutral-500'">
-                          {{ work.is_public ? '已发布' : '草稿' }}
-                        </span>
-                      </div>
-                    </div>
+                  + 添加作品
+                </NuxtLink>
+              </div>
+            </div>
+
+            <!-- 列表内容 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div v-if="worksLoading" class="col-span-full text-center text-gray-400 dark:text-neutral-500 py-8">加载中...</div>
+              <div v-else-if="works.length === 0" class="col-span-full text-center text-gray-400 dark:text-neutral-500 py-8">暂无作品</div>
+              <div
+                v-else
+                v-for="work in works"
+                :key="work.id"
+                class="bg-white dark:bg-neutral-800 rounded-xl p-4 border border-gray-100 dark:border-neutral-700 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-md transition-all"
+              >
+                <div class="flex items-start gap-3">
+                  <div v-if="work.images && work.images.length" class="w-16 h-16 rounded-lg bg-gray-100 dark:bg-neutral-700 overflow-hidden flex-shrink-0">
+                    <img :src="work.images[0]" class="w-full h-full object-cover" />
                   </div>
-                  <div class="flex gap-2 ml-4">
-                    <button @click="editWork(work)" class="px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">编辑</button>
-                    <button @click="deleteWork(work.id)" class="px-3 py-1.5 text-xs font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">删除</button>
+                  <div v-else class="w-16 h-16 rounded-lg bg-gray-100 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0">
+                    <span class="text-xl">🖼️</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="font-medium text-gray-900 dark:text-white truncate">{{ work.title || '无标题' }}</h4>
+                    <p v-if="work.content" class="text-xs text-gray-500 dark:text-neutral-400 mt-1 line-clamp-2">{{ work.content }}</p>
+                    <div class="flex items-center gap-2 mt-2">
+                      <span class="text-xs px-2 py-0.5 rounded-full" :class="{
+                        'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400': work.style === '写实古风',
+                        'bg-gray-100 text-gray-700 dark:bg-neutral-700 dark:text-neutral-300': work.style === '水墨风格',
+                        'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400': work.style === '彩色插画',
+                      }">{{ work.style === '写实古风' ? '古风' : work.style === '水墨风格' ? '水墨' : '彩色' }}</span>
+                      <span class="text-xs px-2 py-0.5 rounded-full" :class="work.is_public ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-neutral-700 dark:text-neutral-500'">
+                        {{ work.is_public ? '已发布' : '草稿' }}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <!-- 操作按钮 -->
+                <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-neutral-700">
+                  <button @click="deleteWork(work.id)" class="flex-1 px-3 py-1.5 text-xs font-medium text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors">删除</button>
+                </div>
               </div>
-            </section>
+            </div>
           </template>
         </div>
       </div>

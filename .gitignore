@@ -2,10 +2,12 @@
 node_modules/
 .pnpm-store/
 
-# Build output
+# Build outputs
 .output/
 .nuxt/
-.dist/
+.nitro/
+.cache/
+dist/
 
 # Environment
 .env
@@ -33,6 +35,9 @@ Thumbs.db
 # Claude
 .claude/
 
+# Browser sessions
+.browser-sessions/
+
 # Test coverage
 coverage/
 .nyc_output/
@@ -40,4 +45,16 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
-.cache/
+
+# Static generated content
+static/temp/
+static/works/*
+!static/temp/.gitkeep
+!static/works/.gitkeep
+
+# Subprojects
+app/node_modules/
+frontend-workspace/node_modules/
+server/__pycache__/
+server/*.pyc
+server/.venv/
