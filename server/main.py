@@ -41,8 +41,8 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 DEEPSEEK_API_KEY = "sk-c9ea6887cf524832bcd670fd82ed603e".strip()
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
-# --- ComfyUI 配置 ---
-COMFYUI_API_URL = "http://127.0.0.1:8000/prompt"
+# --- ComfyUI 配置 (远程服务器) ---
+COMFYUI_API_URL = "http://frp-net.com:25385/prompt"
 COMFYUI_OUTPUT_DIR = "../static/comfyui_output"
 
 # --- 本地存储配置 ---
@@ -358,14 +358,15 @@ async def save_work(request: SaveWorkRequest):
         # 如果是公开作品，保存到 Supabase
         if request.is_public:
             try:
-                supabase.table("works").insert({
-                    "id": work_id,
+                res = supabase.table("works").insert({
                     "title": metadata["title"],
                     "style": request.style,
                     "scenes": metadata["scenes"],
                     "images": json.dumps(request.images),
                     "view_count": 0
                 }).execute()
+                if res.data:
+                    work_id = res.data[0].get("id", work_id)
             except Exception as e:
                 print(f"⚠️ Supabase 同步失败: {e}")
 
@@ -478,6 +479,30 @@ class LessonRequest(BaseModel):
     content: str
     user_id: str = None
 
+class AddLessonRequest(BaseModel):
+    title: str
+    content: str
+    user_id: Optional[str] = None
+
+@app.post("/api/lessons")
+async def add_lesson(request: AddLessonRequest):
+    """添加课文到 Supabase lessons 表"""
+    try:
+        data = {
+            "title": request.title,
+            "content": request.content,
+            "status": "pending",
+            "image_url": ""
+        }
+        if request.user_id:
+            data["user_id"] = request.user_id
+
+        res = supabase.table("lessons").insert(data).execute()
+        return {"status": "success", "data": res.data, "message": "课文添加成功"}
+    except Exception as e:
+        print(f"❌ 添加课文失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/generate-lesson-images")
 async def generate_lesson_images(request: LessonRequest):
     """原有接口 - 生成课文图片"""
@@ -506,6 +531,121 @@ async def generate_lesson_images(request: LessonRequest):
         "scenes": [s.model_dump() for s in scenes],
         "message": "任务已启动"
     }
+
+
+class UpdateWorkRequest(BaseModel):
+    title: Optional[str] = None
+    style: Optional[str] = None
+    scenes: Optional[list] = None
+    images: Optional[list] = None
+    is_public: Optional[bool] = None
+
+@app.get("/api/works")
+async def get_all_works():
+    """获取所有作品"""
+    try:
+        res = supabase.table("works").select("*").order("created_at", desc=True).execute()
+        return res.data
+    except Exception as e:
+        print(f"⚠️ 获取作品列表失败: {e}")
+        return []
+
+@app.put("/api/works/{work_id}")
+async def update_work(work_id: int, request: UpdateWorkRequest):
+    """更新作品"""
+    try:
+        update_data = {}
+        if request.title is not None:
+            update_data["title"] = request.title
+        if request.style is not None:
+            update_data["style"] = request.style
+        if request.scenes is not None:
+            update_data["scenes"] = request.scenes
+        if request.images is not None:
+            update_data["images"] = request.images if isinstance(request.images, list) else json.loads(request.images)
+        if request.is_public is not None:
+            update_data["is_public"] = request.is_public
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="没有要更新的字段")
+
+        res = supabase.table("works").update(update_data).eq("id", work_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="作品不存在")
+        return {"status": "success", "data": res.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 更新作品失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/works/{work_id}")
+async def delete_work(work_id: int):
+    """删除作品"""
+    try:
+        res = supabase.table("works").delete().eq("id", work_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="作品不存在")
+        return {"status": "success", "message": "删除成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 删除作品失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UpdateLessonRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    status: Optional[str] = None
+
+@app.get("/api/lessons")
+async def get_all_lessons():
+    """获取所有课文"""
+    try:
+        res = supabase.table("lessons").select("*").order("created_at", desc=True).execute()
+        return res.data
+    except Exception as e:
+        print(f"⚠️ 获取课文列表失败: {e}")
+        return []
+
+@app.put("/api/lessons/{lesson_id}")
+async def update_lesson(lesson_id: int, request: UpdateLessonRequest):
+    """更新课文"""
+    try:
+        update_data = {}
+        if request.title is not None:
+            update_data["title"] = request.title
+        if request.content is not None:
+            update_data["content"] = request.content
+        if request.status is not None:
+            update_data["status"] = request.status
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="没有要更新的字段")
+
+        res = supabase.table("lessons").update(update_data).eq("id", lesson_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="课文不存在")
+        return {"status": "success", "data": res.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 更新课文失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/lessons/{lesson_id}")
+async def delete_lesson(lesson_id: int):
+    """删除课文"""
+    try:
+        res = supabase.table("lessons").delete().eq("id", lesson_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="课文不存在")
+        return {"status": "success", "message": "删除成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 删除课文失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

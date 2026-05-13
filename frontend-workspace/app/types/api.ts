@@ -56,3 +56,16 @@ export interface SaveWorkResponse {
 export type StyleType = '写实古风' | '水墨风格' | '彩色插画'
 
 export const STYLE_OPTIONS: StyleType[] = ['写实古风', '水墨风格', '彩色插画']
+
+// 作品类型
+export interface Work {
+  id: number
+  title: string
+  author?: string
+  style: StyleType
+  scenes: Scene[]
+  images: string[]
+  thumbnail?: string
+  created_at: string
+  is_public: boolean
+}

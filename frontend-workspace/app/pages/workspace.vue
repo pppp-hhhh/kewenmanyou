@@ -8,14 +8,14 @@ const { startPoll } = useTaskPoll()
 // 暗色模式
 const { isDark, toggle } = useDarkMode()
 
-// 课文列表（从 API 获取）
-const { data: texts } = await useFetch('/api/texts', {
+// 课文列表（从数据库获取）
+const { data: lessons, refresh: refreshLessons } = await useFetch('/api/lessons', {
   default: () => [],
 })
 
-// 课文来源：内置课文 ID 或 'custom'
+// 课文来源：选择课文 或 'custom'
 const textSource = ref<'select' | 'custom'>('select')
-const selectedTextId = ref<number | null>(null)
+const selectedLessonId = ref<number | null>(null)
 const selectOpen = ref(false)
 
 // 画风选择
@@ -28,7 +28,7 @@ const customText = ref('')
 const analyzeText = async () => {
   const text = textSource.value === 'custom'
     ? customText.value
-    : texts.value?.find((t: any) => t.id === selectedTextId.value)?.content || ''
+    : lessons.value?.find((l: any) => l.id === selectedLessonId.value)?.content || ''
 
   if (!text.trim()) {
     alert('请输入课文内容')
@@ -220,8 +220,8 @@ const exportWork = async () => {
                 @click="selectOpen = !selectOpen"
                 @blur="selectOpen = false"
               >
-                <span :class="selectedTextId ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-500'">
-                  {{ selectedTextId ? (texts?.find((t: any) => t.id === selectedTextId)?.title + ' - ' + texts?.find((t: any) => t.id === selectedTextId)?.author) : '请选择课文' }}
+                <span :class="selectedLessonId ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-500'">
+                  {{ selectedLessonId ? (lessons?.find((l: any) => l.id === selectedLessonId)?.title || '请选择课文') : '请选择课文' }}
                 </span>
                 <!-- Custom Chevron -->
                 <svg class="w-4 h-4 text-indigo-400 flex-shrink-0 transition-transform duration-200" :class="{ 'rotate-180': selectOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,15 +244,14 @@ const exportWork = async () => {
                 >
                   <div class="max-h-60 overflow-y-auto">
                     <button
-                      v-for="text in texts"
-                      :key="text.id"
+                      v-for="lesson in lessons"
+                      :key="lesson.id"
                       type="button"
                       class="w-full px-4 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-700 dark:hover:bg-gray-700 transition-all duration-150"
-                      :class="{ 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 dark:from-indigo-900/30 dark:to-purple-900/30 dark:text-indigo-300': selectedTextId === text.id }"
-                      @mousedown.prevent="selectedTextId = text.id; selectOpen = false"
+                      :class="{ 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 dark:from-indigo-900/30 dark:to-purple-900/30 dark:text-indigo-300': selectedLessonId === lesson.id }"
+                      @mousedown.prevent="selectedLessonId = lesson.id; selectOpen = false"
                     >
-                      <span class="font-medium">{{ text.title }}</span>
-                      <span class="text-gray-400 text-sm ml-2">- {{ text.author }}</span>
+                      <span class="font-medium">{{ lesson.title }}</span>
                     </button>
                   </div>
                 </div>
@@ -297,7 +296,7 @@ const exportWork = async () => {
               AI 分析
             </h2>
             <button
-              :disabled="store.isAnalyzing || (!selectedTextId && !customText.trim())"
+              :disabled="store.isAnalyzing || (!selectedLessonId && !customText.trim())"
               class="w-full px-6 py-3 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/50
                      disabled:opacity-50 disabled:cursor-not-allowed
                      transition-all duration-200 flex items-center justify-center gap-2
@@ -339,27 +338,27 @@ const exportWork = async () => {
                   <span class="text-sm font-semibold text-indigo-700 dark:text-indigo-400">场景 {{ index + 1 }}</span>
                   <div class="flex gap-1">
                     <button
-                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
+                      class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
                       :disabled="index === 0"
                       title="上移"
                       @click="store.moveSceneUp(index)"
                     >
-                      ↑
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
                     </button>
                     <button
-                      class="w-7 h-7 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
+                      class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg disabled:opacity-30 transition-colors"
                       :disabled="index === store.scenes.length - 1"
                       title="下移"
                       @click="store.moveSceneDown(index)"
                     >
-                      ↓
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <button
-                      class="w-7 h-7 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/30 text-red-400 hover:text-red-500 rounded-lg transition-colors"
+                      class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                       title="删除"
                       @click="store.removeScene(index)"
                     >
-                      ×
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                   </div>
                 </div>
