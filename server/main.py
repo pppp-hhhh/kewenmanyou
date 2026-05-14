@@ -157,13 +157,21 @@ async def analyze_with_deepseek(text: str, style: str) -> list[Scene]:
 
     print(f"🤖 [DeepSeek] 开始分析文本 (风格: {style})...")
 
+    style_prefix = STYLE_PREFIXES.get(style, STYLE_PREFIXES["彩色插画"])
+
+    style_guide = {
+        "写实古风": "写实古风 - 传统中国画美学，工笔重彩，服饰建筑符合历史，色调温润",
+        "水墨风格": "水墨风格 - 中国水墨画，留白写意，毛笔笔触，黑白灰层次，禅意悠远",
+        "彩色插画": "彩色插画 - 现代动漫风格，色彩鲜艳明亮，线条流畅，视觉冲击强"
+    }.get(style, "彩色插画 - 现代动漫风格，色彩鲜艳明亮，线条流畅")
+
     prompt = f"""你是一个漫画导演。请将以下课文内容转化成漫画分镜。
 
 要求：
 1. 根据内容合理划分场景数量，每个重要情节一个场景
 2. 每个场景包含：中文描述(description_cn)和英文绘图提示词(prompt_en)
-3. 英文提示词要详细，包含场景细节、人物动作、表情等
-4. 风格要求：{style}
+3. 英文提示词要详细，包含场景细节、人物动作、表情等，不要包含风格前缀
+4. 风格要求：{style_guide}
 5. 只返回JSON格式，不要其他文字
 
 课文内容：

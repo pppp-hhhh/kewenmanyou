@@ -10,11 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 ┌─────────────────────────────────────────────┐
-│               前端 (Nuxt 4)                 │
-│  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  工作台      │  │    展示广场          │  │
-│  │  (CSR)      │  │    (SSR/SSG)         │  │
-│  └─────────────┘  └─────────────────────┘  │
+│          前端 (Nuxt 4) — frontend-workspace  │
+│  ┌─────────────┐  ┌─────────────────────┐   │
+│  │  工作台      │  │    展示广场          │   │
+│  │  (CSR)      │  │    (SSR/SSG)         │   │
+│  └─────────────┘  └─────────────────────┘   │
 └────────────────────┬────────────────────────┘
                      │ HTTP API (代理 /api)
                      ▼
@@ -36,33 +36,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 kemenmanyou/
-├── app/                          # Nuxt 4 frontend
-│   ├── app.vue                   # 根组件
-│   ├── layouts/default.vue       # 默认布局
-│   ├── pages/
-│   │   ├── index.vue             # 重定向 / → /gallery
-│   │   ├── gallery.vue           # 展示广场
-│   │   ├── watch/[id].vue        # 观看页
-│   │   └── workspace.vue         # 工作台
-│   ├── components/
-│   ├── stores/workspace.ts       # Pinia store
-│   ├── composables/
-│   │   ├── api.ts                # useApiFetch 封装
-│   │   ├── useAnalyze.ts
-│   │   ├── useGenerate.ts
-│   │   └── useWorks.ts
-│   └── assets/css/tailwind.css
-├── server/                       # FastAPI backend
-│   └── (main.py, models, etc.)
-└── public/                       # 静态资源
+├── app/                           # Nuxt 4 前端 (原 frontend-workspace)
+│   ├── app/                       # Nuxt 应用目录
+│   │   ├── app.vue                # 根组件
+│   │   ├── layouts/default.vue    # 默认布局
+│   │   ├── pages/
+│   │   │   ├── index.vue          # 重定向 / → /gallery
+│   │   │   ├── gallery.vue        # 展示广场
+│   │   │   ├── watch/[id].vue     # 观看页
+│   │   │   ├── workspace.vue      # 工作台
+│   │   │   └── admin/             # 管理后台
+│   │   ├── components/            # 组件
+│   │   ├── stores/                # Pinia stores (auth, workspace)
+│   │   ├── composables/           # API composables
+│   │   └── types/                 # 类型定义
+│   └── server/api/               # Nuxt server routes (API 代理)
+├── server/                        # FastAPI 后端
+│   ├── main.py                    # 主应用
+│   ├── requirements.txt          # Python 依赖
+│   └── static/                   # 静态文件
+└── doc/                          # 文档
 ```
 
 ## Backend (lzl)
 
 - **URL**: `http://localhost:8000`
 - **Swagger**: `http://localhost:8000/docs`
-- **Start**: `uvicorn server.main:app --reload --host 0.0.0.0 --port 8000`
-- **Database**: SQLite at `./app.db` (MVP)
+- **Start**: `cd server && uvicorn main:app --reload --host 0.0.0.0 --port 8000`
+- **Database**: Supabase (PostgreSQL)
 
 ### Key API Endpoints
 
@@ -75,18 +76,9 @@ kemenmanyou/
 | POST | `/api/works` | Save generated work |
 | GET | `/api/works/public` | List public works (gallery) |
 | GET | `/api/works/{work_id}` | Get work details |
-
-### Environment Variables (.env)
-
-```
-DEEPSEEK_API_KEY=your_key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-COMFYUI_API_URL=http://localhost:8188/api/generate
-MAX_CONCURRENT_GENERATIONS=2
-TEMP_IMAGE_DIR=./static/temp
-WORKS_IMAGE_DIR=./static/works
-DATABASE_URL=sqlite:///./app.db
-```
+| POST | `/api/lessons` | Add lesson to Supabase |
+| GET | `/api/lessons` | Get all lessons |
+| POST | `/api/upload` | Upload image file |
 
 ### Backend Tech Stack
 
@@ -97,6 +89,7 @@ DATABASE_URL=sqlite:///./app.db
 - **Concurrency**: `asyncio.Semaphore` (max 2 concurrent generations)
 - **Image resolution**: 512×512 or 512×384
 - **LCM LoRA**: Reduces sampling steps from 20-30 to 4-6 (3-5x speedup)
+- **Database**: Supabase (PostgreSQL)
 
 ## Frontend (Nuxt 4)
 
@@ -116,7 +109,7 @@ DATABASE_URL=sqlite:///./app.db
 ### Composables
 
 - `useApiFetch` — base fetch wrapper with error handling
-- `useAnalyze` —课文 analysis logic
+- `useAnalyze` — 课文 analysis logic
 - `useGenerate` — task submission + polling
 - `useWorks` — work save/load
 
